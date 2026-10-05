@@ -5,7 +5,7 @@
 (function () {
   "use strict";
 
-  const { buildPeriods, requestPlan, chunk, reportRows, toGa4Data, processMap, buildVerdicts, autoTargets, processTree, processSegments } = window.JMCore;
+  const { buildPeriods, requestPlan, chunk, reportRows, toGa4Data, processMap, buildVerdicts, autoTargets, processTree, processSegments, buildSummary } = window.JMCore;
   const fillTemplate = window.JMCore.fillTemplate;
 
   const SCOPE = "https://www.googleapis.com/auth/analytics.readonly";
@@ -15,10 +15,18 @@
   const state = { token: null, tokenExp: 0, tokenClient: null, properties: [], template: null, lastData: null };
   const $ = (id) => document.getElementById(id);
 
-  function status(text, kind = "") {
+  function status(text, kind = "", link = null) {
     const el = $("status");
     el.textContent = text;
     el.className = `status ${kind}`;
+    if (link) {
+      const a = document.createElement("a");
+      a.href = link.href;
+      a.target = "_blank";
+      a.rel = "noopener";
+      a.textContent = link.text;
+      el.appendChild(a);
+    }
   }
 
   function store(key, value) {
@@ -271,7 +279,42 @@
       if (activeTab && activeTab !== "map" && frame.contentWindow.switchTab) frame.contentWindow.switchTab(activeTab);
     };
     frame.srcdoc = fillTemplate(state.template, p);
+    state.lastPlaceholders = p;
+    state.lastTargets = info;
     $("download").disabled = false;
+    $("copyClaude").disabled = false;
+  }
+
+  // ── Copy for Claude: our analysis brief + this dashboard's data ───────────
+
+  async function copyForClaude() {
+    if (!state.lastData || !state.lastPlaceholders) return;
+    try {
+      if (!state.prompt) {
+        const base = (window.JM_CONFIG && JM_CONFIG.assetsBase) || "";
+        state.prompt = await (await fetch(`${base}claude_prompt.md`)).text();
+      }
+      const text = `${state.prompt.trim()}\n\n${buildSummary(state.lastData, state.lastPlaceholders, state.lastTargets)}\n`;
+      await copyText(text);
+      status(`Copied: analysis brief + data, ${text.length.toLocaleString("en-US")} characters. Paste it into a new Claude chat.`, "ok", { href: "https://claude.ai/new", text: "Open Claude →" });
+    } catch (e) {
+      status(`Could not copy: ${e.message}`, "error");
+    }
+  }
+
+  async function copyText(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+      try { await navigator.clipboard.writeText(text); return; } catch (e) { /* fall back below */ }
+    }
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand("copy");
+    document.body.removeChild(ta);
+    if (!ok) throw new Error("the browser blocked clipboard access");
   }
 
   function downloadData() {
@@ -296,6 +339,7 @@
     $("targetsBtn").addEventListener("click", () => { $("targets").hidden = !$("targets").hidden; });
     $("targetsSave").addEventListener("click", saveManualTargets);
     $("targetsAuto").addEventListener("click", useAutoTargets);
+    $("copyClaude").addEventListener("click", copyForClaude);
     // Fit the iframe to its content (tabs change the height).
     setInterval(() => {
       const doc = $("frame").contentDocument;

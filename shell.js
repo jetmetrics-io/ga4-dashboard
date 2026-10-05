@@ -22,6 +22,7 @@ window.JMShell = {
   #jm-app .status { flex-basis: 100%; font-size: 12px; color: var(--jm-muted); }
   #jm-app .status.ok { color: var(--jm-accent); }
   #jm-app .status.error { color: var(--jm-error); }
+  #jm-app .status a { color: var(--jm-accent); margin-left: 6px; }
   #jm-app .targets { flex-basis: 100%; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px 16px; padding: 12px; border: 1px solid var(--jm-line); border-radius: 10px; background: var(--jm-bg); }
   #jm-app .targets[hidden] { display: none; }
   #jm-app .targets-title { grid-column: 1 / -1; font-weight: 600; }
@@ -45,6 +46,7 @@ window.JMShell = {
     </select>
     <button id="refresh" disabled>Refresh</button>
     <button id="targetsBtn" disabled>Targets</button>
+    <button id="copyClaude" disabled title="Copy our analysis brief and this dashboard's data, then paste into a new Claude chat">Copy for Claude</button>
     <button id="download" disabled title="Download the raw GA4 data used for this dashboard">Raw data</button>
     <div id="targets" class="targets" hidden>
       <div class="targets-title">Funnel targets for the Driver Tree</div>

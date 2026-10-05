@@ -37,6 +37,8 @@
       pop: { startDate: isoDate(popStart), endDate: isoDate(popEnd), name: "pop" },
       yoy: { startDate: isoDate(minusYear(start)), endDate: isoDate(minusYear(end)), name: "yoy" },
       label: `${fmt(start)} – ${fmt(end)}, ${end.getUTCFullYear()}`,
+      popLabel: `${fmt(popStart)} – ${fmt(popEnd)}, ${popEnd.getUTCFullYear()}`,
+      yoyLabel: `${fmt(minusYear(start))} – ${fmt(minusYear(end))}, ${minusYear(end).getUTCFullYear()}`,
     };
   }
 
@@ -145,6 +147,8 @@
     });
     return {
       period_label: periods.label,
+      period_pop_label: periods.popLabel,
+      period_yoy_label: periods.yoyLabel,
       store,
       yoy_available: yoyAvailable,
       agg_current: aggFor(R("agg"), "current"),
@@ -710,6 +714,91 @@
     return p;
   }
 
+  // ── Summary for an LLM (copy to Claude) ──────────────────────────────────
+
+  const SUMMARY_MAP = [
+    ["REV", "Revenue"], ["AOV", "Average Order Value"], ["ARP", "ARPPC (revenue per purchaser)"],
+    ["PUR", "Purchases (sessions with purchase)"], ["FST", "First-time purchasers"], ["RPT", "Repeat purchasers"],
+    ["CON", "CR Sessions → Purchase"], ["CHP", "CR Checkout → Purchase"], ["CHK", "Sessions with Checkout"],
+    ["ACK", "CR Add to Cart → Checkout"], ["ATS", "ATCs per Session"], ["ATC", "Sessions with Add to Cart"],
+    ["PAC", "CR Product Views → Add to Cart"], ["PVC", "Sessions with Product Views"], ["SPV", "CR Sessions → Product Views"],
+    ["PVS", "Product Views per Session"], ["SES", "Sessions"], ["SPU", "Sessions per User"],
+  ];
+
+  function mdTable(head, rows) {
+    return [`| ${head.join(" | ")} |`, `|${head.map(() => "---").join("|")}|`, ...rows.map((r) => `| ${r.join(" | ")} |`)].join("\n");
+  }
+
+  function buildSummary(d, p, targetsInfo) {
+    const out = [];
+    out.push("## Dashboard data");
+    out.push(`Store: ${d.store || "—"}. Period: ${d.period_label}. Compared with the previous period (${d.period_pop_label})` +
+      (d.yoy_available ? ` and the same period last year (${d.period_yoy_label}).` : ". No data for the same period last year."));
+
+    out.push("\n### Funnel metric map");
+    const head = ["Metric", "Current", "Previous period", "Change"].concat(d.yoy_available ? ["Last year", "Change"] : []);
+    out.push(mdTable(head, SUMMARY_MAP.map(([k, label]) => [label, p[`${k}_VAL`], p[`${k}_PP_P`] || "—", p[`${k}_PP_V`]]
+      .concat(d.yoy_available ? [p[`${k}_YY_P`] || "—", p[`${k}_YY_V`]] : []))));
+
+    const chans = [1, 2, 3, 4, 5, 6].filter((i) => p[`S${i}_N`]);
+    if (chans.length) {
+      out.push("\n### Traffic sources (sessions)");
+      out.push(mdTable(["Channel", "Current", "Previous period", "Change"], chans.map((i) => [p[`S${i}_N`], p[`S${i}_VAL`], p[`S${i}_PP_P`] || "—", p[`S${i}_PP_V`]])));
+    }
+
+    out.push("\n### Driver tree: conversion steps vs targets");
+    if (targetsInfo && targetsInfo.targets) {
+      out.push(`Targets: ${targetsInfo.source === "manual" ? "set by the user" : "each step's best month over the last 12 months"}.`);
+      const tr = [["TR0", "Overall CR Sessions → Purchase", null], ["TR4", "Sessions → Product Views", "TA4"], ["TR3", "Product Views → Add to Cart", "TA3"], ["TR2", "Add to Cart → Checkout", "TA2"], ["TR1", "Checkout → Purchase", "TA1"]];
+      out.push(mdTable(["Step", "Actual", "Target", "Gap", "Share of lost sessions"], tr.map(([k, label, ta]) => [label, p[`${k}_VAL`], p[`${k}_TG`], p[`${k}_GP`], ta ? p[`${ta}_LS`] : "—"])));
+    } else {
+      out.push("No targets set yet.");
+    }
+
+    const segNames = { user_type: "User type", traffic_source: "Traffic source", device: "Device" };
+    const cur = d.agg_current, pop = d.agg_pop, fc = d.funnel_current;
+    const totals = { name: "Total", sessions: cur.sessions, s2: fc.view_item, s3: fc.add_to_cart, s4: fc.begin_checkout, s5: fc.purchase,
+      revenue: cur.totalRevenue, transactions: cur.transactions, pop_revenue: pop.totalRevenue };
+    const segRow = (r) => {
+      const m = _rowMetrics(r);
+      return [r.name, _fmtInt(r.sessions), _fmtPct(m.cr1), _fmtPct(m.cr2), _fmtPct(m.cr3), _fmtPct(m.cr4), _fmtPct(m.crp),
+        _fmtInt(r.s5), m.aov ? _fmtCurrency(m.aov) : "N/A", _fmtCurrency(r.revenue), _fmtDelta(m.delta)[0]];
+    };
+    Object.keys(segNames).forEach((k) => {
+      const seg = (d.segments || {})[k];
+      if (!seg || !seg.query_b_current.length) return;
+      const rows = _segmentRows(seg.query_a_current, seg.query_b_current, seg.query_b_pop);
+      out.push(`\n### Segments: ${segNames[k]}`);
+      out.push(mdTable(["Segment", "Sessions", "S→PV", "PV→ATC", "ATC→CHK", "CHK→PUR", "CR", "Purchases", "AOV", "Revenue", "Revenue vs previous"],
+        rows.map(segRow).concat([segRow(totals)])));
+    });
+
+    const weeks = [...new Set((d.weekly_agg || []).map((r) => r.yearWeek))].sort();
+    if (weeks.length) {
+      const pur = {};
+      (d.weekly_events || []).filter((r) => r.eventName === "purchase").forEach((r) => { pur[r.yearWeek] = r.sessions; });
+      out.push("\n### Weekly trend (current period; first and last weeks may be partial)");
+      out.push(mdTable(["Week (YYYYWW)", "Sessions", "Purchases", "Revenue", "CR"], weeks.map((w) => {
+        const a = d.weekly_agg.find((r) => r.yearWeek === w) || {};
+        return [w, _fmtInt(a.sessions), _fmtInt(pur[w] || 0), _fmtCurrency(a.totalRevenue), _fmtPct(_div(pur[w] || 0, a.sessions))];
+      })));
+    }
+
+    const notes = [];
+    const steps = [["view_item", "Product Views"], ["add_to_cart", "Add to Cart"], ["begin_checkout", "Checkout"], ["purchase", "Purchase"]];
+    let prev = ["session_start", "Sessions"];
+    steps.forEach(([e, label]) => {
+      if ((fc[e] || 0) > (fc[prev[0]] || 0)) notes.push(`More sessions at ${label} (${_fmtInt(fc[e])}) than at ${prev[1]} (${_fmtInt(fc[prev[0]])}): likely platform behavior, shown as is.`);
+      prev = [e, label];
+    });
+    if (cur.transactions > 0 && !cur.totalRevenue) notes.push("Transactions are recorded but revenue is zero: revenue may not be sent to GA4 with purchases.");
+    if (notes.length) {
+      out.push("\n### Data notes");
+      notes.forEach((n) => out.push(`- ${n}`));
+    }
+    return out.join("\n");
+  }
+
   // ── Template ───────────────────────────────────────────────────────────────
 
   function fillTemplate(template, placeholders) {
@@ -723,7 +812,7 @@
     return html;
   }
 
-  const api = { buildPeriods, requestPlan, chunk, reportRows, toGa4Data, processMap, buildVerdicts, autoTargets, processTree, processSegments, fillTemplate };
+  const api = { buildPeriods, requestPlan, chunk, reportRows, toGa4Data, processMap, buildVerdicts, autoTargets, processTree, processSegments, buildSummary, fillTemplate };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else global.JMCore = api;
 })(typeof window !== "undefined" ? window : globalThis);
