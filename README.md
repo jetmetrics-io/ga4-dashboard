@@ -17,7 +17,7 @@ A GA4 e-commerce funnel dashboard that runs entirely in the browser: the user si
 
 ## Updating the live page
 
-The Tilda block loads files from `cdn.jsdelivr.net/gh/jetmetrics-io/ga4-dashboard@main/`. After pushing to `main`, purge the CDN cache for changed files:
+The Tilda block loads files from `cdn.jsdelivr.net/gh/jetmetrics-io/ga4-dashboard@main/` with a `?v=` suffix that changes every 10 minutes (jsDelivr lets browsers cache files for a week). After pushing to `main`, purge the CDN cache for changed files:
 
 ```
 curl https://purge.jsdelivr.net/gh/jetmetrics-io/ga4-dashboard@main/app.js

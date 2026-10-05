@@ -29,6 +29,11 @@
     }
   }
 
+  // Cache-busting suffix for files on the CDN (set by the Tilda block).
+  function assetVersion() {
+    return window.JM_CONFIG && JM_CONFIG.v ? `?v=${JM_CONFIG.v}` : "";
+  }
+
   function store(key, value) {
     try { localStorage.setItem(key, value); } catch (e) { /* storage unavailable */ }
   }
@@ -237,7 +242,7 @@
       });
       state.lastData = toGa4Data(rowsByKey, periods, prop ? prop.name : "");
       state.lastPropertyId = propertyId;
-      if (!state.template) state.template = await (await fetch(`${(window.JM_CONFIG && JM_CONFIG.assetsBase) || ""}template.html`)).text();
+      if (!state.template) state.template = await (await fetch(`${(window.JM_CONFIG && JM_CONFIG.assetsBase) || ""}template.html${assetVersion()}`)).text();
       render();
 
       const secs = ((performance.now() - t0) / 1000).toFixed(1);
@@ -292,7 +297,7 @@
     try {
       if (!state.prompt) {
         const base = (window.JM_CONFIG && JM_CONFIG.assetsBase) || "";
-        state.prompt = await (await fetch(`${base}claude_prompt.md`)).text();
+        state.prompt = await (await fetch(`${base}claude_prompt.md${assetVersion()}`)).text();
       }
       const text = `${state.prompt.trim()}\n\n${buildSummary(state.lastData, state.lastPlaceholders, state.lastTargets)}\n`;
       await copyText(text);
