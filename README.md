@@ -23,6 +23,8 @@ The Tilda block loads files from `cdn.jsdelivr.net/gh/jetmetrics-io/ga4-dashboar
 curl https://purge.jsdelivr.net/gh/jetmetrics-io/ga4-dashboard@main/app.js
 ```
 
+Wait ~15 seconds after the push before purging (a purge sent too early keeps the old version), then check the file on the CDN.
+
 ## Notes
 
 - The OAuth client must list every page origin under "Authorized JavaScript origins" (`http://localhost:8080`, `https://jetmetrics.io`).
