@@ -8,7 +8,9 @@
   const { buildPeriods, requestPlan, chunk, reportRows, toGa4Data, processMap, buildVerdicts, autoTargets, processTree, processSegments, buildSummary } = window.JMCore;
   const fillTemplate = window.JMCore.fillTemplate;
 
-  const SCOPE = "https://www.googleapis.com/auth/analytics.readonly";
+  const SCOPE_GA = "https://www.googleapis.com/auth/analytics.readonly";
+  // Email (non-sensitive) lets Google skip the account chooser on the next sign-in.
+  const SCOPE = `${SCOPE_GA} https://www.googleapis.com/auth/userinfo.email`;
   const ADMIN = "https://analyticsadmin.googleapis.com/v1beta";
   const DATA = "https://analyticsdata.googleapis.com/v1beta";
 
@@ -56,10 +58,24 @@
       error_callback: (err) => status(`Sign-in was not completed: ${err.type || err.message || "unknown"}`, "error"),
     });
     $("connect").disabled = false;
+    restoreToken();
   }
 
   function requestToken() {
-    state.tokenClient.requestAccessToken({ prompt: state.token ? "" : "consent" });
+    // prompt "" = consent screen only the first time; hint = skip the account chooser.
+    state.tokenClient.requestAccessToken({ prompt: "", hint: load("jm.email") || undefined });
+  }
+
+  function setConnectedUi(connected) {
+    $("connect").textContent = connected ? "Connected" : load("jm.email") ? "Reconnect Google Analytics" : "Connect Google Analytics";
+    $("connect").classList.toggle("connected", connected);
+  }
+
+  function forgetToken() {
+    state.token = null;
+    state.tokenExp = 0;
+    try { localStorage.removeItem("jm.token"); } catch (e) { /* ignore */ }
+    setConnectedUi(false);
   }
 
   async function onToken(resp) {
@@ -67,16 +83,57 @@
       status(`Google returned an error: ${resp.error}`, "error");
       return;
     }
+    if (!google.accounts.oauth2.hasGrantedAllScopes(resp, SCOPE_GA)) {
+      status("Access to Google Analytics was not granted. Click Connect and allow it.", "error");
+      return;
+    }
     state.token = resp.access_token;
     state.tokenExp = Date.now() + (Number(resp.expires_in) - 60) * 1000;
-    $("connect").textContent = "Connected";
-    $("connect").classList.add("connected");
-    if (!state.properties.length) await loadProperties();
-    if (state.pending) {
-      const run = state.pending;
-      state.pending = null;
-      run();
+    // Keep the token for its lifetime (1 hour) so a reload doesn't ask to connect again.
+    store("jm.token", JSON.stringify({ token: state.token, exp: state.tokenExp }));
+    setConnectedUi(true);
+    if (!load("jm.email")) rememberEmail();
+    await afterConnect();
+  }
+
+  async function rememberEmail() {
+    try {
+      const r = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", { headers: { Authorization: `Bearer ${state.token}` } });
+      const j = await r.json();
+      if (j.email) store("jm.email", j.email);
+    } catch (e) { /* not critical */ }
+  }
+
+  // Properties, then the dashboard for the last used property and period.
+  async function afterConnect() {
+    try {
+      if (!state.properties.length) await loadProperties();
+    } catch (e) {
+      if (e.status === 401) {
+        forgetToken();
+        status("Your Google session has expired. Click Reconnect, the dashboard will load right away.");
+        return;
+      }
+      status(`Could not load GA4 properties: ${e.message}`, "error");
+      return;
     }
+    const run = state.pending || (load("jm.property") ? build : null);
+    state.pending = null;
+    if (run) run();
+  }
+
+  function restoreToken() {
+    let saved = null;
+    try { saved = JSON.parse(load("jm.token") || "null"); } catch (e) { saved = null; }
+    if (saved && saved.token && Date.now() < saved.exp) {
+      state.token = saved.token;
+      state.tokenExp = saved.exp;
+      setConnectedUi(true);
+      afterConnect();
+      return;
+    }
+    setConnectedUi(false);
+    if (load("jm.email")) status("Your Google session has expired (it lasts an hour). Click Reconnect, the dashboard will load right away.");
   }
 
   function tokenValid() {
@@ -250,7 +307,7 @@
       status(`Done in ${secs}s · ${batches.length} requests to GA4 · ${periods.label}.${yoyNote}`, "ok");
     } catch (e) {
       if (e.status === 401) {
-        state.token = null;
+        forgetToken();
         state.pending = build;
         requestToken();
         return;
