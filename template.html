@@ -1,0 +1,1300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Funnel Dashboard</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #E2E2E0; font-family: Inter, -apple-system, sans-serif; padding: 40px; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; }
+
+  .page { width: 900px; background: white; border-radius: 12px; box-shadow: 0 2px 20px rgba(0,0,0,0.09); overflow: hidden; }
+
+  .app-header { background: #F5F5F3; border-bottom: 1px solid #E4E4E2; padding: 11px 20px; display: flex; align-items: center; justify-content: space-between; }
+  .app-brand { display: flex; align-items: center; gap: 8px; }
+  .app-brand-name { font-size: 13px; font-weight: 600; color: #1A1A1A; }
+  .app-brand-sep { color: #CCC; font-size: 13px; }
+  .app-brand-sub { font-size: 13px; color: #999; }
+  .tab-panel { display: block; }
+
+  .tab-bar { background: #EEEEEC; padding: 8px 20px 0; border-bottom: 1px solid #E0E0DE; display: flex; gap: 3px; }
+  .tab-btn {
+    font-family: Inter, -apple-system, sans-serif;
+    font-size: 13px; font-weight: 400; color: #999;
+    padding: 8px 16px; background: transparent;
+    border: 1px solid transparent; border-bottom: none;
+    border-radius: 6px 6px 0 0; cursor: pointer; margin-bottom: -1px;
+  }
+  .tab-btn.active { background: white; color: #1A1A1A; font-weight: 500; border-color: #E0E0DE; border-bottom: 1px solid white; }
+  .tab-btn:hover:not(.active) { color: #555; }
+
+  .dashboard {
+    position: relative; width: 900px; height: 2000px;
+    background: white; overflow: hidden; flex-shrink: 0;
+  }
+
+  .band { position: absolute; left: 0; right: 0; }
+  .band-revenue      { top: 38px;   height: 390px; background: #FAFAFA; }
+  .band-purchases    { top: 428px;  height: 400px; background: white; }
+  .band-checkouts    { top: 828px;  height: 240px; background: #FAFAFA; }
+  .band-atc          { top: 1068px; height: 240px; background: white; }
+  .band-productviews { top: 1308px; height: 240px; background: #FAFAFA; }
+  .band-traffic      { top: 1548px; height: 440px; background: white; }
+
+  .row-label {
+    position: absolute; left: 0; width: 28px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 1.8px; color: #b0b0b0;
+    writing-mode: vertical-rl; transform: rotate(180deg);
+  }
+
+  .col-header {
+    position: absolute; top: 8px;
+    font-size: 11px; color: #c0c0c0; font-weight: 500; letter-spacing: 0.2px;
+  }
+
+  .card {
+    position: absolute; background: white; border-radius: 14px;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.07), 0 4px 14px rgba(0,0,0,0.06);
+    border: 1px solid #f0f0f0; padding: 16px 16px 12px;
+    overflow: hidden; text-align: center;
+  }
+
+  .metric-label {
+    font-family: 'Circular Std', Inter, sans-serif;
+    font-size: 11px; color: #aaa; font-weight: 400;
+    margin-bottom: 6px; line-height: 1.3;
+  }
+
+  .metric-value {
+    font-family: 'Circular Std', Inter, sans-serif;
+    font-size: 28px; font-weight: 700; color: #111;
+    line-height: 1; margin-bottom: 10px; letter-spacing: -0.5px;
+  }
+  .metric-value.xl { font-size: 32px; }
+
+  .changes { display: flex; gap: 16px; margin-bottom: 8px; justify-content: center; }
+  .change-block { display: flex; flex-direction: column; gap: 3px; }
+
+  .change-period {
+    font-size: 9px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.8px; color: #ccc;
+  }
+
+  .change-val { font-size: 12px; font-weight: 400; line-height: 1; }
+  .change-val .arrow { font-size: 8px; vertical-align: middle; margin-right: 1px; }
+  .change-prev { font-size: 12px; color: #ccc; margin-top: 4px; line-height: 1; }
+
+  .up   { color: #52B89A; }
+  .down { color: #FF8080; }
+
+  .card.problem { border-color: #FF5C60; border-width: 1.5px; }
+
+  .problem-badge { position: absolute; text-align: center; z-index: 15; }
+  .problem-badge span {
+    display: inline-block;
+    font-family: 'Circular Std', Inter, sans-serif;
+    font-size: 10px; font-weight: 600; color: #FF5C60;
+    background: white; border: 1.5px solid #FF5C60;
+    border-radius: 20px; padding: 3px 10px;
+    box-shadow: 0 2px 6px rgba(255,92,96,0.15); white-space: nowrap;
+  }
+
+  .sparkline {
+    display: block; height: 40px;
+    width: calc(100% + 32px);
+    margin-left: -16px; margin-right: -16px; margin-bottom: -12px;
+  }
+
+  .arrows {
+    position: absolute; top: 0; left: 0;
+    width: 900px; height: 2000px;
+    pointer-events: none; z-index: 20;
+  }
+
+  .right-panel {
+    width: 900px; display: grid; grid-template-columns: 1fr;
+    gap: 20px; padding: 24px;
+  }
+
+  .panel-section {
+    background: white; border-radius: 16px;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.07), 0 4px 14px rgba(0,0,0,0.06);
+    border: 1px solid #f0f0f0; padding: 20px;
+  }
+
+  .panel-title {
+    font-size: 11px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 1px; color: #b0b0b0; margin-bottom: 14px;
+  }
+
+  .seg-table { width: 100%; border-collapse: collapse; }
+  .seg-table th {
+    font-size: 9px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.5px; color: #bbb; text-align: right;
+    padding: 0 3px 8px 3px; border-bottom: 1px solid #f0f0f0; white-space: nowrap;
+  }
+  .seg-table th.th-seg { text-align: left; padding-left: 0; }
+  .seg-table td {
+    padding: 7px 3px; text-align: right; color: #333;
+    border-bottom: 1px solid #f8f8f8; font-size: 10.5px;
+    white-space: nowrap; vertical-align: middle;
+  }
+  .seg-table .seg-name { text-align: left; padding-left: 0; color: #555; font-weight: 500; font-size: 10.5px; }
+  .seg-table .pos { color: #52B89A; }
+  .seg-table .neg { color: #FF8080; }
+  .seg-table .total-row td {
+    font-weight: 600; color: #111; border-bottom: none;
+    border-top: 1px solid #eee; padding-top: 8px;
+  }
+  .seg-table thead th { padding-bottom: 8px; }
+  .seg-table tr.problem-row { background: rgba(255,92,96,0.05); }
+  .seg-table tr.problem-row td:first-child { border-left: 2.5px solid #FF5C60; padding-left: 5px; }
+  .seg-table tr.problem-row .seg-name { color: #FF5C60; }
+  .seg-table .mc-good { color: #0E9C7D; font-weight: 500; }
+  .seg-table .mc-warn { color: #FF9500; font-weight: 500; }
+  .seg-table .mc-bad  { color: #FF5C60; font-weight: 500; }
+
+  .seg-insight {
+    margin-top: 14px; padding-top: 12px;
+    border-top: 1px solid #f0f0f0;
+    font-size: 11px; color: #888; line-height: 1.55;
+  }
+  .seg-insight-label {
+    font-size: 9px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.8px; color: #FF5C60;
+    display: block; margin-bottom: 5px;
+  }
+  .seg-insight .hi-bad  { color: #FF5C60; font-weight: 600; }
+  .seg-insight .hi-good { color: #0E9C7D; font-weight: 600; }
+
+  .empty-state-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; background: #F7FAF9; border: 1px solid #D8EDE7; border-radius: 8px;
+    padding: 10px 14px; margin-bottom: 14px;
+    font-size: 12px; color: #555; line-height: 1.4;
+  }
+  .copy-btn {
+    font-family: inherit; font-size: 11px; font-weight: 600; color: #fff;
+    background: #0E9C7D; border: none; border-radius: 6px;
+    padding: 6px 12px; cursor: pointer; white-space: nowrap; flex-shrink: 0;
+  }
+  .copy-btn:hover { background: #0c8269; }
+
+  .tree-verdict {
+    background: #F7FAF9; border: 1px solid #D8EDE7;
+    border-radius: 8px; padding: 12px 16px; margin-bottom: 20px;
+    display: flex; flex-direction: column; gap: 5px;
+  }
+  .verdict-row { display: flex; align-items: baseline; gap: 8px; }
+  .verdict-label { font-size: 12px; font-weight: 400; color: #AAA; min-width: 110px; flex-shrink: 0; }
+  .verdict-text { font-size: 12px; color: #555; line-height: 1.6; }
+  .verdict-text .hi-bad  { color: #D94F4F; font-weight: 500; }
+  .verdict-text .hi-good { color: #0E9C7D; font-weight: 500; }
+
+  .zone-good-text { color: #0E9C7D; }
+  .zone-warn-text { color: #FF9500; }
+  .zone-bad-text  { color: #FF5C60; }
+
+  .progress-area {
+    display: flex; align-items: center; gap: 8px;
+    width: calc(100% + 32px); margin-left: -16px; margin-right: -16px; margin-bottom: -12px;
+    padding: 0 16px 10px; min-height: 40px;
+  }
+  .progress-track { flex: 1; height: 7px; background: #f0f0f0; border-radius: 4px; overflow: hidden; }
+  .progress-fill  { height: 100%; border-radius: 4px; }
+  .zone-good .progress-fill { background: #0E9C7D; }
+  .zone-warn .progress-fill { background: #FF9500; }
+  .zone-bad  .progress-fill { background: #FF5C60; }
+  .progress-pct { font-size: 10px; font-weight: 600; white-space: nowrap; min-width: 28px; text-align: right; }
+  .zone-good .progress-pct { color: #0E9C7D; }
+  .zone-warn .progress-pct { color: #FF9500; }
+  .zone-bad  .progress-pct { color: #FF5C60; }
+
+  .tree-section {
+    width: 900px; background: white;
+    overflow: hidden; flex-shrink: 0; display: flex; flex-direction: column;
+  }
+  .tree-body { position: relative; width: 900px; height: 840px; }
+  .tree-arrows {
+    position: absolute; top: 0; left: 0; width: 900px; height: 840px;
+    pointer-events: none; z-index: 20;
+  }
+
+  .m-input {
+    width:40px; font-size:11px; font-weight:600; color:#999;
+    background:none; border:none; border-bottom:1px dashed #ccc;
+    outline:none; text-align:center; padding:0; margin:0;
+    font-family:Inter,-apple-system,sans-serif; letter-spacing:0.8px;
+    -moz-appearance:textfield; appearance:textfield;
+  }
+  .m-input::-webkit-inner-spin-button,
+  .m-input::-webkit-outer-spin-button { -webkit-appearance:none; margin:0; }
+  .m-input:focus { border-bottom-color:#FF9500; color:#666; }
+</style>
+</head>
+<body>
+<div class="page">
+
+<div class="app-header">
+  <div class="app-brand">
+    <span class="app-brand-name">Funnel Dashboard</span>
+    <span class="app-brand-sep">/</span>
+    <span class="app-brand-sub">{{STORE}}</span>
+  </div>
+  <span style="font-size:12px; color:#999;">{{PERIOD}}</span>
+</div>
+
+<div class="tab-bar">
+  <button class="tab-btn active" data-tab="map" onclick="switchTab('map')">Map</button>
+  <button class="tab-btn" data-tab="tree" onclick="switchTab('tree')">Tree</button>
+  <button class="tab-btn" data-tab="segments" onclick="switchTab('segments')">Segments</button>
+</div>
+
+<!-- ══════════════════════════════ MAP ══════════════════════════════ -->
+<div id="panel-map" class="tab-panel">
+<div style="padding:20px 24px 16px;">
+  <div style="font-size:11px; font-weight:600; color:#BBBBBB; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">Funnel Metric Map</div>
+  <p style="font-size:12px; color:#aaa; line-height:1.55; margin:0 0 14px;">This map covers the full funnel — from traffic to revenue — and compares the current period against the previous period (PoP) and the same period last year (YoY). To build the map for a different date range, write in chat.</p>
+  <div class="tree-verdict">
+    <div class="verdict-row">
+      <span class="verdict-label">Revenue</span>
+      <span class="verdict-text">{{MV_RV}}</span>
+    </div>
+    <div class="verdict-row">
+      <span class="verdict-label">What's driving it</span>
+      <span class="verdict-text">{{MV_DR}}</span>
+    </div>
+    <div class="verdict-row">
+      <span class="verdict-label">Watch</span>
+      <span class="verdict-text">{{MV_WC}}</span>
+    </div>
+  </div>
+</div>
+<div style="height:1px; background:#F0F0EE;"></div>
+<div class="dashboard">
+
+  <div class="band band-revenue"></div>
+  <div class="band band-purchases"></div>
+  <div class="band band-checkouts"></div>
+  <div class="band band-atc"></div>
+  <div class="band band-productviews"></div>
+  <div class="band band-traffic"></div>
+
+  <div class="row-label" style="top:38px;   height:390px;">Revenue</div>
+  <div class="row-label" style="top:428px;  height:400px;">Purchases</div>
+  <div class="row-label" style="top:828px;  height:240px;">Checkouts</div>
+  <div class="row-label" style="top:1068px; height:240px;">Add to Carts</div>
+  <div class="row-label" style="top:1308px; height:240px;">Product Views</div>
+  <div class="row-label" style="top:1548px; height:440px;">Traffic</div>
+
+  <div class="col-header" style="left:45px;  width:195px; text-align:center;">Conversion metrics</div>
+  <div class="col-header" style="left:353px; width:195px; text-align:center;">Primary metrics</div>
+  <div class="col-header" style="left:655px; width:195px; text-align:center;">Supporting metrics</div>
+
+  <!-- Universal problem badge. BG_DSP = "block" or "none" -->
+  <div class="problem-badge" style="display:{{BG_DSP}}; left:{{BG_LFT}}; top:{{BG_TOP}}; width:{{BG_WDT}};">
+    <span>{{BG_TXT}}</span>
+  </div>
+
+  <!-- REVENUE ROW -->
+  <div class="card{{REV_XC}}" style="left:353px;top:138px;width:195px;height:180px;">
+    <div class="metric-label">🔥 Total Revenue</div>
+    <div class="metric-value xl">{{REV_VAL}}</div>
+    <div class="changes">
+      <div class="change-block">
+        <span class="change-period">PoP</span>
+        <span class="change-val {{REV_PP_C}}"><span class="arrow">{{REV_PP_A}}</span>{{REV_PP_V}}</span>
+        <span class="change-prev">{{REV_PP_P}}</span>
+      </div>
+      <div class="change-block">
+        <span class="change-period">YoY</span>
+        <span class="change-val {{REV_YY_C}}"><span class="arrow">{{REV_YY_A}}</span>{{REV_YY_V}}</span>
+        <span class="change-prev">{{REV_YY_P}}</span>
+      </div>
+    </div>
+    <svg class="sparkline" viewBox="0 0 178 36" preserveAspectRatio="none">
+      <defs><linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="{{REV_SC}}" stop-opacity="{{REV_SO}}"/>
+        <stop offset="100%" stop-color="{{REV_SC}}" stop-opacity="0"/>
+      </linearGradient></defs>
+      <path d="{{REV_SF}}" fill="url(#g1)"/>
+      <polyline points="{{REV_SP}}" fill="none" stroke="{{REV_SC}}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </div>
+
+  <div class="card{{AOV_XC}}" style="left:655px;top:44px;width:195px;height:180px;">
+    <div class="metric-label">Average Order Value</div>
+    <div class="metric-value">{{AOV_VAL}}</div>
+    <div class="changes">
+      <div class="change-block">
+        <span class="change-period">PoP</span>
+        <span class="change-val {{AOV_PP_C}}"><span class="arrow">{{AOV_PP_A}}</span>{{AOV_PP_V}}</span>
+        <span class="change-prev">{{AOV_PP_P}}</span>
+      </div>
+      <div class="change-block">
+        <span class="change-period">YoY</span>
+        <span class="change-val {{AOV_YY_C}}"><span class="arrow">{{AOV_YY_A}}</span>{{AOV_YY_V}}</span>
+        <span class="change-prev">{{AOV_YY_P}}</span>
+      </div>
+    </div>
+    <svg class="sparkline" viewBox="0 0 178 36" preserveAspectRatio="none">
+      <defs><linearGradient id="g2" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="{{AOV_SC}}" stop-opacity="{{AOV_SO}}"/>
+        <stop offset="100%" stop-color="{{AOV_SC}}" stop-opacity="0"/>
+      </linearGradient></defs>
+      <path d="{{AOV_SF}}" fill="url(#g2)"/>
+      <polyline points="{{AOV_SP}}" fill="none" stroke="{{AOV_SC}}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </div>
+
+  <div class="card{{ARP_XC}}" style="left:655px;top:232px;width:195px;height:180px;">
+    <div class="metric-label">ARPPC</div>
+    <div class="metric-value">{{ARP_VAL}}</div>
+    <div class="changes">
+      <div class="change-block">
+        <span class="change-period">PoP</span>
+        <span class="change-val {{ARP_PP_C}}"><span class="arrow">{{ARP_PP_A}}</span>{{ARP_PP_V}}</span>
+        <span class="change-prev">{{ARP_PP_P}}</span>
+      </div>
+      <div class="change-block">
+        <span class="change-period">YoY</span>
+        <span class="change-val {{ARP_YY_C}}"><span class="arrow">{{ARP_YY_A}}</span>{{ARP_YY_V}}</span>
+        <span class="change-prev">{{ARP_YY_P}}</span>
+      </div>
+    </div>
+    <svg class="sparkline" viewBox="0 0 178 36" preserveAspectRatio="none">
+      <defs><linearGradient id="g24" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="{{ARP_SC}}" stop-opacity="{{ARP_SO}}"/>
+        <stop offset="100%" stop-color="{{ARP_SC}}" stop-opacity="0"/>
+      </linearGradient></defs>
+      <path d="{{ARP_SF}}" fill="url(#g24)"/>
+      <polyline points="{{ARP_SP}}" fill="none" stroke="{{ARP_SC}}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </div>
+
+  <!-- PURCHASES ROW -->
+  <div class="card{{CON_XC}}" style="left:45px;top:436px;width:195px;height:180px;">
+    <div class="metric-label">CR Sessions → Purchase</div>
+    <div class="metric-value">{{CON_VAL}}</div>
+    <div class="changes">
+      <div class="change-block">
+        <span class="change-period">PoP</span>
+        <span class="change-val {{CON_PP_C}}"><span class="arrow">{{CON_PP_A}}</span>{{CON_PP_V}}</span>
+        <span class="change-prev">{{CON_PP_P}}</span>
+      </div>
+      <div class="change-block">
+        <span class="change-period">YoY</span>
+        <span class="change-val {{CON_YY_C}}"><span class="arrow">{{CON_YY_A}}</span>{{CON_YY_V}}</span>
+        <span class="change-prev">{{CON_YY_P}}</span>
+      </div>
+    </div>
+    <svg class="sparkline" viewBox="0 0 178 36" preserveAspectRatio="none">
+      <defs><linearGradient id="g3" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="{{CON_SC}}" stop-opacity="{{CON_SO}}"/>
+        <stop offset="100%" stop-color="{{CON_SC}}" stop-opacity="0"/>
+      </linearGradient></defs>
+      <path d="{{CON_SF}}" fill="url(#g3)"/>
+      <polyline points="{{CON_SP}}" fill="none" stroke="{{CON_SC}}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </div>
+
+  <div class="card{{CHP_XC}}" style="left:45px;top:636px;width:195px;height:180px;">
+    <div class="metric-label">CR Checkout → Purchase</div>
+    <div class="metric-value">{{CHP_VAL}}</div>
+    <div class="changes">
+      <div class="change-block">
+        <span class="change-period">PoP</span>
+        <span class="change-val {{CHP_PP_C}}"><span class="arrow">{{CHP_PP_A}}</span>{{CHP_PP_V}}</span>
+        <span class="change-prev">{{CHP_PP_P}}</span>
+      </div>
+      <div class="change-block">
+        <span class="change-period">YoY</span>
+        <span class="change-val {{CHP_YY_C}}"><span class="arrow">{{CHP_YY_A}}</span>{{CHP_YY_V}}</span>
+        <span class="change-prev">{{CHP_YY_P}}</span>
+      </div>
+    </div>
+    <svg class="sparkline" viewBox="0 0 178 36" preserveAspectRatio="none">
+      <defs><linearGradient id="g4" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="{{CHP_SC}}" stop-opacity="{{CHP_SO}}"/>
+        <stop offset="100%" stop-color="{{CHP_SC}}" stop-opacity="0"/>
+      </linearGradient></defs>
+      <path d="{{CHP_SF}}" fill="url(#g4)"/>
+      <polyline points="{{CHP_SP}}" fill="none" stroke="{{CHP_SC}}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </div>
+
+  <div class="card{{PUR_XC}}" style="left:353px;top:536px;width:195px;height:180px;">
+    <div class="metric-label">Purchases</div>
+    <div class="metric-value xl">{{PUR_VAL}}</div>
+    <div class="changes">
+      <div class="change-block">
+        <span class="change-period">PoP</span>
+        <span class="change-val {{PUR_PP_C}}"><span class="arrow">{{PUR_PP_A}}</span>{{PUR_PP_V}}</span>
+        <span class="change-prev">{{PUR_PP_P}}</span>
+      </div>
+      <div class="change-block">
+        <span class="change-period">YoY</span>
+        <span class="change-val {{PUR_YY_C}}"><span class="arrow">{{PUR_YY_A}}</span>{{PUR_YY_V}}</span>
+        <span class="change-prev">{{PUR_YY_P}}</span>
+      </div>
+    </div>
+    <svg class="sparkline" viewBox="0 0 178 36" preserveAspectRatio="none">
+      <defs><linearGradient id="g5" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="{{PUR_SC}}" stop-opacity="{{PUR_SO}}"/>
+        <stop offset="100%" stop-color="{{PUR_SC}}" stop-opacity="0"/>
+      </linearGradient></defs>
+      <path d="{{PUR_SF}}" fill="url(#g5)"/>
+      <polyline points="{{PUR_SP}}" fill="none" stroke="{{PUR_SC}}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </div>
+
+  <div class="card{{FST_XC}}" style="left:655px;top:436px;width:195px;height:180px;">
+    <div class="metric-label">First time purchasers</div>
+    <div class="metric-value">{{FST_VAL}}</div>
+    <div class="changes">
+      <div class="change-block">
+        <span class="change-period">PoP</span>
+        <span class="change-val {{FST_PP_C}}"><span class="arrow">{{FST_PP_A}}</span>{{FST_PP_V}}</span>
+        <span class="change-prev">{{FST_PP_P}}</span>
+      </div>
+      <div class="change-block">
+        <span class="change-period">YoY</span>
+        <span class="change-val {{FST_YY_C}}"><span class="arrow">{{FST_YY_A}}</span>{{FST_YY_V}}</span>
+        <span class="change-prev">{{FST_YY_P}}</span>
+      </div>
+    </div>
+    <svg class="sparkline" viewBox="0 0 178 36" preserveAspectRatio="none">
+      <defs><linearGradient id="g6" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="{{FST_SC}}" stop-opacity="{{FST_SO}}"/>
+        <stop offset="100%" stop-color="{{FST_SC}}" stop-opacity="0"/>
+      </linearGradient></defs>
+      <path d="{{FST_SF}}" fill="url(#g6)"/>
+      <polyline points="{{FST_SP}}" fill="none" stroke="{{FST_SC}}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </div>
+
+  <div class="card{{RPT_XC}}" style="left:655px;top:636px;width:195px;height:180px;">
+    <div class="metric-label">Repeat purchasers</div>
+    <div class="metric-value">{{RPT_VAL}}</div>
+    <div class="changes">
+      <div class="change-block">
+        <span class="change-period">PoP</span>
+        <span class="change-val {{RPT_PP_C}}"><span class="arrow">{{RPT_PP_A}}</span>{{RPT_PP_V}}</span>
+        <span class="change-prev">{{RPT_PP_P}}</span>
+      </div>
+      <div class="change-block">
+        <span class="change-period">YoY</span>
+        <span class="change-val {{RPT_YY_C}}"><span class="arrow">{{RPT_YY_A}}</span>{{RPT_YY_V}}</span>
+        <span class="change-prev">{{RPT_YY_P}}</span>
+      </div>
+    </div>
+    <svg class="sparkline" viewBox="0 0 178 36" preserveAspectRatio="none">
+      <defs><linearGradient id="g7" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="{{RPT_SC}}" stop-opacity="{{RPT_SO}}"/>
+        <stop offset="100%" stop-color="{{RPT_SC}}" stop-opacity="0"/>
+      </linearGradient></defs>
+      <path d="{{RPT_SF}}" fill="url(#g7)"/>
+      <polyline points="{{RPT_SP}}" fill="none" stroke="{{RPT_SC}}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </div>
+
+  <!-- CHECKOUTS ROW -->
+  <div class="card{{ACK_XC}}" style="left:45px;top:848px;width:195px;height:180px;">
+    <div class="metric-label">CR Add to Cart → Checkout</div>
+    <div class="metric-value">{{ACK_VAL}}</div>
+    <div class="changes">
+      <div class="change-block">
+        <span class="change-period">PoP</span>
+        <span class="change-val {{ACK_PP_C}}"><span class="arrow">{{ACK_PP_A}}</span>{{ACK_PP_V}}</span>
+        <span class="change-prev">{{ACK_PP_P}}</span>
+      </div>
+      <div class="change-block">
+        <span class="change-period">YoY</span>
+        <span class="change-val {{ACK_YY_C}}"><span class="arrow">{{ACK_YY_A}}</span>{{ACK_YY_V}}</span>
+        <span class="change-prev">{{ACK_YY_P}}</span>
+      </div>
+    </div>
+    <svg class="sparkline" viewBox="0 0 178 36" preserveAspectRatio="none">
+      <defs><linearGradient id="g11" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="{{ACK_SC}}" stop-opacity="{{ACK_SO}}"/>
+        <stop offset="100%" stop-color="{{ACK_SC}}" stop-opacity="0"/>
+      </linearGradient></defs>
+      <path d="{{ACK_SF}}" fill="url(#g11)"/>
+      <polyline points="{{ACK_SP}}" fill="none" stroke="{{ACK_SC}}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </div>
+
+  <div class="card{{CHK_XC}}" style="left:353px;top:848px;width:195px;height:180px;">
+    <div class="metric-label">Sessions with Checkout</div>
+    <div class="metric-value xl">{{CHK_VAL}}</div>
+    <div class="changes">
+      <div class="change-block">
+        <span class="change-period">PoP</span>
+        <span class="change-val {{CHK_PP_C}}"><span class="arrow">{{CHK_PP_A}}</span>{{CHK_PP_V}}</span>
+        <span class="change-prev">{{CHK_PP_P}}</span>
+      </div>
+      <div class="change-block">
+        <span class="change-period">YoY</span>
+        <span class="change-val {{CHK_YY_C}}"><span class="arrow">{{CHK_YY_A}}</span>{{CHK_YY_V}}</span>
+        <span class="change-prev">{{CHK_YY_P}}</span>
+      </div>
+    </div>
+    <svg class="sparkline" viewBox="0 0 178 36" preserveAspectRatio="none">
+      <defs><linearGradient id="g12" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="{{CHK_SC}}" stop-opacity="{{CHK_SO}}"/>
+        <stop offset="100%" stop-color="{{CHK_SC}}" stop-opacity="0"/>
+      </linearGradient></defs>
+      <path d="{{CHK_SF}}" fill="url(#g12)"/>
+      <polyline points="{{CHK_SP}}" fill="none" stroke="{{CHK_SC}}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </div>
+
+  <!-- ADD TO CARTS ROW -->
+  <div class="card{{PAC_XC}}" style="left:45px;top:1088px;width:195px;height:180px;">
+    <div class="metric-label">CR Product Views → Add to Cart</div>
+    <div class="metric-value">{{PAC_VAL}}</div>
+    <div class="changes">
+      <div class="change-block">
+        <span class="change-period">PoP</span>
+        <span class="change-val {{PAC_PP_C}}"><span class="arrow">{{PAC_PP_A}}</span>{{PAC_PP_V}}</span>
+        <span class="change-prev">{{PAC_PP_P}}</span>
+      </div>
+      <div class="change-block">
+        <span class="change-period">YoY</span>
+        <span class="change-val {{PAC_YY_C}}"><span class="arrow">{{PAC_YY_A}}</span>{{PAC_YY_V}}</span>
+        <span class="change-prev">{{PAC_YY_P}}</span>
+      </div>
+    </div>
+    <svg class="sparkline" viewBox="0 0 178 36" preserveAspectRatio="none">
+      <defs><linearGradient id="g8" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="{{PAC_SC}}" stop-opacity="{{PAC_SO}}"/>
+        <stop offset="100%" stop-color="{{PAC_SC}}" stop-opacity="0"/>
+      </linearGradient></defs>
+      <path d="{{PAC_SF}}" fill="url(#g8)"/>
+      <polyline points="{{PAC_SP}}" fill="none" stroke="{{PAC_SC}}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </div>
+
+  <div class="card{{ATC_XC}}" style="left:353px;top:1088px;width:195px;height:180px;">
+    <div class="metric-label">Sessions with Add to Cart</div>
+    <div class="metric-value xl">{{ATC_VAL}}</div>
+    <div class="changes">
+      <div class="change-block">
+        <span class="change-period">PoP</span>
+        <span class="change-val {{ATC_PP_C}}"><span class="arrow">{{ATC_PP_A}}</span>{{ATC_PP_V}}</span>
+        <span class="change-prev">{{ATC_PP_P}}</span>
+      </div>
+      <div class="change-block">
+        <span class="change-period">YoY</span>
+        <span class="change-val {{ATC_YY_C}}"><span class="arrow">{{ATC_YY_A}}</span>{{ATC_YY_V}}</span>
+        <span class="change-prev">{{ATC_YY_P}}</span>
+      </div>
+    </div>
+    <svg class="sparkline" viewBox="0 0 178 36" preserveAspectRatio="none">
+      <defs><linearGradient id="g9" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="{{ATC_SC}}" stop-opacity="{{ATC_SO}}"/>
+        <stop offset="100%" stop-color="{{ATC_SC}}" stop-opacity="0"/>
+      </linearGradient></defs>
+      <path d="{{ATC_SF}}" fill="url(#g9)"/>
+      <polyline points="{{ATC_SP}}" fill="none" stroke="{{ATC_SC}}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </div>
+
+  <div class="card{{ATS_XC}}" style="left:655px;top:1088px;width:195px;height:180px;">
+    <div class="metric-label">ATCs per Session</div>
+    <div class="metric-value">{{ATS_VAL}}</div>
+    <div class="changes">
+      <div class="change-block">
+        <span class="change-period">PoP</span>
+        <span class="change-val {{ATS_PP_C}}"><span class="arrow">{{ATS_PP_A}}</span>{{ATS_PP_V}}</span>
+        <span class="change-prev">{{ATS_PP_P}}</span>
+      </div>
+      <div class="change-block">
+        <span class="change-period">YoY</span>
+        <span class="change-val {{ATS_YY_C}}"><span class="arrow">{{ATS_YY_A}}</span>{{ATS_YY_V}}</span>
+        <span class="change-prev">{{ATS_YY_P}}</span>
+      </div>
+    </div>
+    <svg class="sparkline" viewBox="0 0 178 36" preserveAspectRatio="none">
+      <defs><linearGradient id="g25" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="{{ATS_SC}}" stop-opacity="{{ATS_SO}}"/>
+        <stop offset="100%" stop-color="{{ATS_SC}}" stop-opacity="0"/>
+      </linearGradient></defs>
+      <path d="{{ATS_SF}}" fill="url(#g25)"/>
+      <polyline points="{{ATS_SP}}" fill="none" stroke="{{ATS_SC}}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </div>
+
+  <!-- PRODUCT VIEWS ROW -->
+  <div class="card{{SPV_XC}}" style="left:45px;top:1328px;width:195px;height:180px;">
+    <div class="metric-label">CR Sessions → Product Views</div>
+    <div class="metric-value">{{SPV_VAL}}</div>
+    <div class="changes">
+      <div class="change-block">
+        <span class="change-period">PoP</span>
+        <span class="change-val {{SPV_PP_C}}"><span class="arrow">{{SPV_PP_A}}</span>{{SPV_PP_V}}</span>
+        <span class="change-prev">{{SPV_PP_P}}</span>
+      </div>
+      <div class="change-block">
+        <span class="change-period">YoY</span>
+        <span class="change-val {{SPV_YY_C}}"><span class="arrow">{{SPV_YY_A}}</span>{{SPV_YY_V}}</span>
+        <span class="change-prev">{{SPV_YY_P}}</span>
+      </div>
+    </div>
+    <svg class="sparkline" viewBox="0 0 178 36" preserveAspectRatio="none">
+      <defs><linearGradient id="g13" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="{{SPV_SC}}" stop-opacity="{{SPV_SO}}"/>
+        <stop offset="100%" stop-color="{{SPV_SC}}" stop-opacity="0"/>
+      </linearGradient></defs>
+      <path d="{{SPV_SF}}" fill="url(#g13)"/>
+      <polyline points="{{SPV_SP}}" fill="none" stroke="{{SPV_SC}}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </div>
+
+  <div class="card{{PVC_XC}}" style="left:353px;top:1328px;width:195px;height:180px;">
+    <div class="metric-label">Sessions with Product Views</div>
+    <div class="metric-value xl">{{PVC_VAL}}</div>
+    <div class="changes">
+      <div class="change-block">
+        <span class="change-period">PoP</span>
+        <span class="change-val {{PVC_PP_C}}"><span class="arrow">{{PVC_PP_A}}</span>{{PVC_PP_V}}</span>
+        <span class="change-prev">{{PVC_PP_P}}</span>
+      </div>
+      <div class="change-block">
+        <span class="change-period">YoY</span>
+        <span class="change-val {{PVC_YY_C}}"><span class="arrow">{{PVC_YY_A}}</span>{{PVC_YY_V}}</span>
+        <span class="change-prev">{{PVC_YY_P}}</span>
+      </div>
+    </div>
+    <svg class="sparkline" viewBox="0 0 178 36" preserveAspectRatio="none">
+      <defs><linearGradient id="g14" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="{{PVC_SC}}" stop-opacity="{{PVC_SO}}"/>
+        <stop offset="100%" stop-color="{{PVC_SC}}" stop-opacity="0"/>
+      </linearGradient></defs>
+      <path d="{{PVC_SF}}" fill="url(#g14)"/>
+      <polyline points="{{PVC_SP}}" fill="none" stroke="{{PVC_SC}}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </div>
+
+  <div class="card{{PVS_XC}}" style="left:655px;top:1328px;width:195px;height:180px;">
+    <div class="metric-label">Product Views per Session</div>
+    <div class="metric-value">{{PVS_VAL}}</div>
+    <div class="changes">
+      <div class="change-block">
+        <span class="change-period">PoP</span>
+        <span class="change-val {{PVS_PP_C}}"><span class="arrow">{{PVS_PP_A}}</span>{{PVS_PP_V}}</span>
+        <span class="change-prev">{{PVS_PP_P}}</span>
+      </div>
+      <div class="change-block">
+        <span class="change-period">YoY</span>
+        <span class="change-val {{PVS_YY_C}}"><span class="arrow">{{PVS_YY_A}}</span>{{PVS_YY_V}}</span>
+        <span class="change-prev">{{PVS_YY_P}}</span>
+      </div>
+    </div>
+    <svg class="sparkline" viewBox="0 0 178 36" preserveAspectRatio="none">
+      <defs><linearGradient id="g26" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="{{PVS_SC}}" stop-opacity="{{PVS_SO}}"/>
+        <stop offset="100%" stop-color="{{PVS_SC}}" stop-opacity="0"/>
+      </linearGradient></defs>
+      <path d="{{PVS_SF}}" fill="url(#g26)"/>
+      <polyline points="{{PVS_SP}}" fill="none" stroke="{{PVS_SC}}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </div>
+
+  <!-- TRAFFIC ROW -->
+  <div class="card{{SES_XC}}" style="left:353px;top:1568px;width:195px;height:180px;">
+    <div class="metric-label">Sessions</div>
+    <div class="metric-value xl">{{SES_VAL}}</div>
+    <div class="changes">
+      <div class="change-block">
+        <span class="change-period">PoP</span>
+        <span class="change-val {{SES_PP_C}}"><span class="arrow">{{SES_PP_A}}</span>{{SES_PP_V}}</span>
+        <span class="change-prev">{{SES_PP_P}}</span>
+      </div>
+      <div class="change-block">
+        <span class="change-period">YoY</span>
+        <span class="change-val {{SES_YY_C}}"><span class="arrow">{{SES_YY_A}}</span>{{SES_YY_V}}</span>
+        <span class="change-prev">{{SES_YY_P}}</span>
+      </div>
+    </div>
+    <svg class="sparkline" viewBox="0 0 178 36" preserveAspectRatio="none">
+      <defs><linearGradient id="g10" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="{{SES_SC}}" stop-opacity="{{SES_SO}}"/>
+        <stop offset="100%" stop-color="{{SES_SC}}" stop-opacity="0"/>
+      </linearGradient></defs>
+      <path d="{{SES_SF}}" fill="url(#g10)"/>
+      <polyline points="{{SES_SP}}" fill="none" stroke="{{SES_SC}}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </div>
+
+  <div class="card{{SPU_XC}}" style="left:655px;top:1568px;width:195px;height:180px;">
+    <div class="metric-label">Sessions per User</div>
+    <div class="metric-value">{{SPU_VAL}}</div>
+    <div class="changes">
+      <div class="change-block">
+        <span class="change-period">PoP</span>
+        <span class="change-val {{SPU_PP_C}}"><span class="arrow">{{SPU_PP_A}}</span>{{SPU_PP_V}}</span>
+        <span class="change-prev">{{SPU_PP_P}}</span>
+      </div>
+      <div class="change-block">
+        <span class="change-period">YoY</span>
+        <span class="change-val {{SPU_YY_C}}"><span class="arrow">{{SPU_YY_A}}</span>{{SPU_YY_V}}</span>
+        <span class="change-prev">{{SPU_YY_P}}</span>
+      </div>
+    </div>
+    <svg class="sparkline" viewBox="0 0 178 36" preserveAspectRatio="none">
+      <defs><linearGradient id="g16" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="{{SPU_SC}}" stop-opacity="{{SPU_SO}}"/>
+        <stop offset="100%" stop-color="{{SPU_SC}}" stop-opacity="0"/>
+      </linearGradient></defs>
+      <path d="{{SPU_SF}}" fill="url(#g16)"/>
+      <polyline points="{{SPU_SP}}" fill="none" stroke="{{SPU_SC}}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </div>
+
+  <!-- TRAFFIC SOURCES: top-6 channels by sessions, sorted descending -->
+  <div class="card{{S1_XC}}" style="left:30px;top:1798px;width:130px;height:180px;">
+    <div class="metric-label">{{S1_N}}</div>
+    <div class="metric-value">{{S1_VAL}}</div>
+    <div class="changes">
+      <div class="change-block">
+        <span class="change-period">PoP</span>
+        <span class="change-val {{S1_PP_C}}"><span class="arrow">{{S1_PP_A}}</span>{{S1_PP_V}}</span>
+        <span class="change-prev">{{S1_PP_P}}</span>
+      </div>
+      <div class="change-block">
+        <span class="change-period">YoY</span>
+        <span class="change-val {{S1_YY_C}}"><span class="arrow">{{S1_YY_A}}</span>{{S1_YY_V}}</span>
+        <span class="change-prev">{{S1_YY_P}}</span>
+      </div>
+    </div>
+    <svg class="sparkline" viewBox="0 0 178 36" preserveAspectRatio="none">
+      <defs><linearGradient id="g17" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="{{S1_SC}}" stop-opacity="{{S1_SO}}"/>
+        <stop offset="100%" stop-color="{{S1_SC}}" stop-opacity="0"/>
+      </linearGradient></defs>
+      <path d="{{S1_SF}}" fill="url(#g17)"/>
+      <polyline points="{{S1_SP}}" fill="none" stroke="{{S1_SC}}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </div>
+
+  <div class="card{{S2_XC}}" style="left:172px;top:1798px;width:130px;height:180px;">
+    <div class="metric-label">{{S2_N}}</div>
+    <div class="metric-value">{{S2_VAL}}</div>
+    <div class="changes">
+      <div class="change-block">
+        <span class="change-period">PoP</span>
+        <span class="change-val {{S2_PP_C}}"><span class="arrow">{{S2_PP_A}}</span>{{S2_PP_V}}</span>
+        <span class="change-prev">{{S2_PP_P}}</span>
+      </div>
+      <div class="change-block">
+        <span class="change-period">YoY</span>
+        <span class="change-val {{S2_YY_C}}"><span class="arrow">{{S2_YY_A}}</span>{{S2_YY_V}}</span>
+        <span class="change-prev">{{S2_YY_P}}</span>
+      </div>
+    </div>
+    <svg class="sparkline" viewBox="0 0 178 36" preserveAspectRatio="none">
+      <defs><linearGradient id="g18" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="{{S2_SC}}" stop-opacity="{{S2_SO}}"/>
+        <stop offset="100%" stop-color="{{S2_SC}}" stop-opacity="0"/>
+      </linearGradient></defs>
+      <path d="{{S2_SF}}" fill="url(#g18)"/>
+      <polyline points="{{S2_SP}}" fill="none" stroke="{{S2_SC}}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </div>
+
+  <div class="card{{S3_XC}}" style="left:314px;top:1798px;width:130px;height:180px;">
+    <div class="metric-label">{{S3_N}}</div>
+    <div class="metric-value">{{S3_VAL}}</div>
+    <div class="changes">
+      <div class="change-block">
+        <span class="change-period">PoP</span>
+        <span class="change-val {{S3_PP_C}}"><span class="arrow">{{S3_PP_A}}</span>{{S3_PP_V}}</span>
+        <span class="change-prev">{{S3_PP_P}}</span>
+      </div>
+      <div class="change-block">
+        <span class="change-period">YoY</span>
+        <span class="change-val {{S3_YY_C}}"><span class="arrow">{{S3_YY_A}}</span>{{S3_YY_V}}</span>
+        <span class="change-prev">{{S3_YY_P}}</span>
+      </div>
+    </div>
+    <svg class="sparkline" viewBox="0 0 178 36" preserveAspectRatio="none">
+      <defs><linearGradient id="g19" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="{{S3_SC}}" stop-opacity="{{S3_SO}}"/>
+        <stop offset="100%" stop-color="{{S3_SC}}" stop-opacity="0"/>
+      </linearGradient></defs>
+      <path d="{{S3_SF}}" fill="url(#g19)"/>
+      <polyline points="{{S3_SP}}" fill="none" stroke="{{S3_SC}}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </div>
+
+  <div class="card{{S4_XC}}" style="left:456px;top:1798px;width:130px;height:180px;">
+    <div class="metric-label">{{S4_N}}</div>
+    <div class="metric-value">{{S4_VAL}}</div>
+    <div class="changes">
+      <div class="change-block">
+        <span class="change-period">PoP</span>
+        <span class="change-val {{S4_PP_C}}"><span class="arrow">{{S4_PP_A}}</span>{{S4_PP_V}}</span>
+        <span class="change-prev">{{S4_PP_P}}</span>
+      </div>
+      <div class="change-block">
+        <span class="change-period">YoY</span>
+        <span class="change-val {{S4_YY_C}}"><span class="arrow">{{S4_YY_A}}</span>{{S4_YY_V}}</span>
+        <span class="change-prev">{{S4_YY_P}}</span>
+      </div>
+    </div>
+    <svg class="sparkline" viewBox="0 0 178 36" preserveAspectRatio="none">
+      <defs><linearGradient id="g20" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="{{S4_SC}}" stop-opacity="{{S4_SO}}"/>
+        <stop offset="100%" stop-color="{{S4_SC}}" stop-opacity="0"/>
+      </linearGradient></defs>
+      <path d="{{S4_SF}}" fill="url(#g20)"/>
+      <polyline points="{{S4_SP}}" fill="none" stroke="{{S4_SC}}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </div>
+
+  <div class="card{{S5_XC}}" style="left:598px;top:1798px;width:130px;height:180px;">
+    <div class="metric-label">{{S5_N}}</div>
+    <div class="metric-value">{{S5_VAL}}</div>
+    <div class="changes">
+      <div class="change-block">
+        <span class="change-period">PoP</span>
+        <span class="change-val {{S5_PP_C}}"><span class="arrow">{{S5_PP_A}}</span>{{S5_PP_V}}</span>
+        <span class="change-prev">{{S5_PP_P}}</span>
+      </div>
+      <div class="change-block">
+        <span class="change-period">YoY</span>
+        <span class="change-val {{S5_YY_C}}"><span class="arrow">{{S5_YY_A}}</span>{{S5_YY_V}}</span>
+        <span class="change-prev">{{S5_YY_P}}</span>
+      </div>
+    </div>
+    <svg class="sparkline" viewBox="0 0 178 36" preserveAspectRatio="none">
+      <defs><linearGradient id="g21" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="{{S5_SC}}" stop-opacity="{{S5_SO}}"/>
+        <stop offset="100%" stop-color="{{S5_SC}}" stop-opacity="0"/>
+      </linearGradient></defs>
+      <path d="{{S5_SF}}" fill="url(#g21)"/>
+      <polyline points="{{S5_SP}}" fill="none" stroke="{{S5_SC}}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </div>
+
+  <div class="card{{S6_XC}}" style="left:740px;top:1798px;width:130px;height:180px;">
+    <div class="metric-label">{{S6_N}}</div>
+    <div class="metric-value">{{S6_VAL}}</div>
+    <div class="changes">
+      <div class="change-block">
+        <span class="change-period">PoP</span>
+        <span class="change-val {{S6_PP_C}}"><span class="arrow">{{S6_PP_A}}</span>{{S6_PP_V}}</span>
+        <span class="change-prev">{{S6_PP_P}}</span>
+      </div>
+      <div class="change-block">
+        <span class="change-period">YoY</span>
+        <span class="change-val {{S6_YY_C}}"><span class="arrow">{{S6_YY_A}}</span>{{S6_YY_V}}</span>
+        <span class="change-prev">{{S6_YY_P}}</span>
+      </div>
+    </div>
+    <svg class="sparkline" viewBox="0 0 178 36" preserveAspectRatio="none">
+      <defs><linearGradient id="g22" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="{{S6_SC}}" stop-opacity="{{S6_SO}}"/>
+        <stop offset="100%" stop-color="{{S6_SC}}" stop-opacity="0"/>
+      </linearGradient></defs>
+      <path d="{{S6_SF}}" fill="url(#g22)"/>
+      <polyline points="{{S6_SP}}" fill="none" stroke="{{S6_SC}}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </div>
+
+  <!-- Fixed structural arrows — do not modify -->
+  <svg class="arrows" viewBox="0 0 900 2000">
+    <defs>
+      <marker id="ag" markerWidth="20" markerHeight="20" refX="14" refY="10"
+              orient="auto" markerUnits="userSpaceOnUse">
+        <polyline points="5,4 14,10 5,16" fill="none" stroke="#0E9C7D"
+                  stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </marker>
+    </defs>
+    <line x1="293" y1="0" x2="293" y2="1790" stroke="#c8c8c8" stroke-width="1" stroke-dasharray="5,5"/>
+    <line x1="607" y1="0" x2="607" y2="1790" stroke="#c8c8c8" stroke-width="1" stroke-dasharray="5,5"/>
+    <line x1="450" y1="534" x2="450" y2="320" stroke="#0E9C7D" stroke-width="2.5" stroke-linecap="round" marker-end="url(#ag)"/>
+    <path d="M 653,134 H 621 A 14,14 0 0,0 607,148 V 214 A 14,14 0 0,1 593,228 H 550" fill="none" stroke="#0E9C7D" stroke-width="2.5" stroke-linecap="round" marker-end="url(#ag)"/>
+    <path d="M 653,322 H 621 A 14,14 0 0,1 607,308 V 242 A 14,14 0 0,0 593,228 H 550" fill="none" stroke="#0E9C7D" stroke-width="2.5" stroke-linecap="round" marker-end="url(#ag)"/>
+    <path d="M 240,526 H 279 A 14,14 0 0,1 293,540 V 612 A 14,14 0 0,0 307,626 H 351" fill="none" stroke="#0E9C7D" stroke-width="2.5" stroke-linecap="round" marker-end="url(#ag)"/>
+    <path d="M 240,726 H 279 A 14,14 0 0,0 293,712 V 640 A 14,14 0 0,1 307,626 H 351" fill="none" stroke="#0E9C7D" stroke-width="2.5" stroke-linecap="round" marker-end="url(#ag)"/>
+    <path d="M 548,626 H 593 A 14,14 0 0,0 607,612 V 540 A 14,14 0 0,1 621,526 H 653" fill="none" stroke="#0E9C7D" stroke-width="2.5" stroke-linecap="round" marker-end="url(#ag)"/>
+    <path d="M 548,626 H 593 A 14,14 0 0,1 607,640 V 712 A 14,14 0 0,0 621,726 H 653" fill="none" stroke="#0E9C7D" stroke-width="2.5" stroke-linecap="round" marker-end="url(#ag)"/>
+    <line x1="450" y1="846" x2="450" y2="718" stroke="#0E9C7D" stroke-width="2.5" stroke-linecap="round" marker-end="url(#ag)"/>
+    <line x1="240" y1="938" x2="351" y2="938" stroke="#0E9C7D" stroke-width="2.5" stroke-linecap="round" marker-end="url(#ag)"/>
+    <line x1="450" y1="1086" x2="450" y2="1030" stroke="#0E9C7D" stroke-width="2.5" stroke-linecap="round" marker-end="url(#ag)"/>
+    <line x1="240" y1="1178" x2="351" y2="1178" stroke="#0E9C7D" stroke-width="2.5" stroke-linecap="round" marker-end="url(#ag)"/>
+    <line x1="548" y1="1178" x2="653" y2="1178" stroke="#0E9C7D" stroke-width="2.5" stroke-linecap="round" marker-end="url(#ag)"/>
+    <line x1="450" y1="1326" x2="450" y2="1270" stroke="#0E9C7D" stroke-width="2.5" stroke-linecap="round" marker-end="url(#ag)"/>
+    <line x1="240" y1="1418" x2="351" y2="1418" stroke="#0E9C7D" stroke-width="2.5" stroke-linecap="round" marker-end="url(#ag)"/>
+    <line x1="548" y1="1418" x2="653" y2="1418" stroke="#0E9C7D" stroke-width="2.5" stroke-linecap="round" marker-end="url(#ag)"/>
+    <line x1="450" y1="1566" x2="450" y2="1510" stroke="#0E9C7D" stroke-width="2.5" stroke-linecap="round" marker-end="url(#ag)"/>
+    <line x1="548" y1="1658" x2="653" y2="1658" stroke="#0E9C7D" stroke-width="2.5" stroke-linecap="round" marker-end="url(#ag)"/>
+    <path d="M 95,1796 V 1778 A 12,12 0 0,1 107,1766 H 438 A 12,12 0 0,0 450,1754 V 1748" fill="none" stroke="#0E9C7D" stroke-width="1.8" stroke-linecap="round" marker-end="url(#ag)"/>
+    <path d="M 237,1796 V 1778 A 12,12 0 0,1 249,1766 H 438 A 12,12 0 0,0 450,1754 V 1748" fill="none" stroke="#0E9C7D" stroke-width="1.8" stroke-linecap="round" marker-end="url(#ag)"/>
+    <path d="M 379,1796 V 1778 A 12,12 0 0,1 391,1766 H 438 A 12,12 0 0,0 450,1754 V 1748" fill="none" stroke="#0E9C7D" stroke-width="1.8" stroke-linecap="round" marker-end="url(#ag)"/>
+    <path d="M 521,1796 V 1778 A 12,12 0 0,0 509,1766 H 462 A 12,12 0 0,1 450,1754 V 1748" fill="none" stroke="#0E9C7D" stroke-width="1.8" stroke-linecap="round" marker-end="url(#ag)"/>
+    <path d="M 663,1796 V 1778 A 12,12 0 0,0 651,1766 H 462 A 12,12 0 0,1 450,1754 V 1748" fill="none" stroke="#0E9C7D" stroke-width="1.8" stroke-linecap="round" marker-end="url(#ag)"/>
+    <path d="M 805,1796 V 1778 A 12,12 0 0,0 793,1766 H 462 A 12,12 0 0,1 450,1754 V 1748" fill="none" stroke="#0E9C7D" stroke-width="1.8" stroke-linecap="round" marker-end="url(#ag)"/>
+  </svg>
+
+</div>
+</div><!-- /panel-map -->
+
+<!-- ══════════════════════════════ TREE ══════════════════════════════ -->
+<div id="panel-tree" class="tab-panel" style="display:none;">
+<div class="tree-section">
+  <div style="padding:20px 24px 16px;">
+    <div style="font-size:11px; font-weight:600; color:#BBBBBB; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px;">Conversion Rate Driver Tree</div>
+    <p style="font-size:11px; color:#aaa; line-height:1.55; margin:0 0 14px;">Each funnel step shows how much of the overall CR it drives and how far it is from its target. To change a target value — write in chat.</p>
+{{TREE_EMPTY_STATE}}
+    <div class="tree-verdict">
+      <div class="verdict-row">
+        <span class="verdict-label">Overall CR</span>
+        <span class="verdict-text">{{TV_OV}}</span>
+      </div>
+      <div class="verdict-row">
+        <span class="verdict-label">Bottleneck</span>
+        <span class="verdict-text">{{TV_BT}}</span>
+      </div>
+      {{TV_HL}}
+    </div>
+  </div>
+  <div class="tree-body">
+
+  <!-- ROOT card TR0 -->
+  <div class="card {{TR0_Z}}" style="left:45px;top:331px;width:195px;height:180px;">
+    <div class="metric-label">CR Sessions → Purchase</div>
+    <div class="metric-value">{{TR0_VAL}}</div>
+    <div class="changes">
+      <div class="change-block">
+        <span class="change-period">VS TGT</span>
+        <span class="change-val {{TR0_GC}}"><span class="arrow">{{TR0_GA}}</span>{{TR0_GP}}</span>
+        <span class="change-prev">Target {{TR0_TG}}</span>
+      </div>
+    </div>
+    <div class="progress-area {{TR0_Z}}">
+      <div class="progress-track"><div class="progress-fill" style="width:{{TR0_FW}}"></div></div>
+      <span class="progress-pct">{{TR0_PT}}</span>
+    </div>
+  </div>
+
+  <!-- Modeling block 1: CR Checkout → Purchase -->
+  <div style="position:absolute; left:630px; top:90px;">
+    <div style="font-size:11px; color:#ccc; font-weight:600; text-transform:uppercase; letter-spacing:0.8px; margin-bottom:8px;">
+      If → <input id="m_in_1" class="m-input" type="number" value="{{MI_1}}" min="0.1" max="999" step="0.1"
+                  oninput="recalcModel(1)" onblur="fmtInput(1)">%
+    </div>
+    <div style="font-size:12px; color:#bbb; margin-bottom:3px;">Overall CR</div>
+    <div style="font-size:13px; font-weight:700; color:#111; line-height:1; margin-bottom:8px;">
+      <span id="m_cr_1">—</span>
+      <span id="m_cr_d_1" style="font-size:12px; font-weight:500; margin-left:4px;"></span>
+    </div>
+    <div style="font-size:12px; color:#bbb; margin-bottom:3px;">Revenue</div>
+    <div style="font-size:12px; font-weight:600; color:#111; line-height:1;">
+      <span id="m_rev_1">—</span>
+      <span id="m_rev_d_1" style="font-weight:500; margin-left:4px;"></span>
+    </div>
+  </div>
+
+  <!-- Modeling block 2: CR ATC → Checkout -->
+  <div style="position:absolute; left:630px; top:284px;">
+    <div style="font-size:11px; color:#ccc; font-weight:600; text-transform:uppercase; letter-spacing:0.8px; margin-bottom:8px;">
+      If → <input id="m_in_2" class="m-input" type="number" value="{{MI_2}}" min="0.1" max="999" step="0.1"
+                  oninput="recalcModel(2)" onblur="fmtInput(2)">%
+    </div>
+    <div style="font-size:12px; color:#bbb; margin-bottom:3px;">Overall CR</div>
+    <div style="font-size:13px; font-weight:700; color:#111; line-height:1; margin-bottom:8px;">
+      <span id="m_cr_2">—</span>
+      <span id="m_cr_d_2" style="font-size:12px; font-weight:500; margin-left:4px;"></span>
+    </div>
+    <div style="font-size:12px; color:#bbb; margin-bottom:3px;">Revenue</div>
+    <div style="font-size:12px; font-weight:600; color:#111; line-height:1;">
+      <span id="m_rev_2">—</span>
+      <span id="m_rev_d_2" style="font-weight:500; margin-left:4px;"></span>
+    </div>
+  </div>
+
+  <!-- Modeling block 3: CR PV → ATC -->
+  <div style="position:absolute; left:630px; top:478px;">
+    <div style="font-size:11px; color:#ccc; font-weight:600; text-transform:uppercase; letter-spacing:0.8px; margin-bottom:8px;">
+      If → <input id="m_in_3" class="m-input" type="number" value="{{MI_3}}" min="0.1" max="999" step="0.1"
+                  oninput="recalcModel(3)" onblur="fmtInput(3)">%
+    </div>
+    <div style="font-size:12px; color:#bbb; margin-bottom:3px;">Overall CR</div>
+    <div style="font-size:13px; font-weight:700; color:#111; line-height:1; margin-bottom:8px;">
+      <span id="m_cr_3">—</span>
+      <span id="m_cr_d_3" style="font-size:12px; font-weight:500; margin-left:4px;"></span>
+    </div>
+    <div style="font-size:12px; color:#bbb; margin-bottom:3px;">Revenue</div>
+    <div style="font-size:12px; font-weight:600; color:#111; line-height:1;">
+      <span id="m_rev_3">—</span>
+      <span id="m_rev_d_3" style="font-weight:500; margin-left:4px;"></span>
+    </div>
+  </div>
+
+  <!-- Modeling block 4: CR Sessions → PV -->
+  <div style="position:absolute; left:630px; top:672px;">
+    <div style="font-size:11px; color:#ccc; font-weight:600; text-transform:uppercase; letter-spacing:0.8px; margin-bottom:8px;">
+      If → <input id="m_in_4" class="m-input" type="number" value="{{MI_4}}" min="0.1" max="999" step="0.1"
+                  oninput="recalcModel(4)" onblur="fmtInput(4)">%
+    </div>
+    <div style="font-size:12px; color:#bbb; margin-bottom:3px;">Overall CR</div>
+    <div style="font-size:13px; font-weight:700; color:#111; line-height:1; margin-bottom:8px;">
+      <span id="m_cr_4">—</span>
+      <span id="m_cr_d_4" style="font-size:12px; font-weight:500; margin-left:4px;"></span>
+    </div>
+    <div style="font-size:12px; color:#bbb; margin-bottom:3px;">Revenue</div>
+    <div style="font-size:12px; font-weight:600; color:#111; line-height:1;">
+      <span id="m_rev_4">—</span>
+      <span id="m_rev_d_4" style="font-weight:500; margin-left:4px;"></span>
+    </div>
+  </div>
+
+  <script>
+    function _n(v) { return parseFloat(String(v).replace(/[,$%]/g,'')) || 0; }
+    const MD = {
+      sessions: _n("{{MD_SS}}"),
+      overallCR: _n("{{MD_CR}}"),
+      revenue: _n("{{MD_RV}}"),
+      aov: _n("{{MD_AV}}"),
+      microCR: [_n("{{MD_M1}}"), _n("{{MD_M2}}"), _n("{{MD_M3}}"), _n("{{MD_M4}}")]
+    };
+    function recalcModel(i) {
+      const raw = parseFloat(document.getElementById('m_in_' + i).value);
+      if (isNaN(raw) || raw <= 0) return;
+      const newMicro = raw / 100;
+      const newOverall = Math.min(MD.overallCR * newMicro / MD.microCR[i - 1], 1);
+      const newPurchases = Math.round(MD.sessions * newOverall);
+      const newRevenue = Math.round(newPurchases * MD.aov);
+      const deltaCR = newOverall - MD.overallCR;
+      const deltaRev = newRevenue - MD.revenue;
+      const color = deltaCR >= 0 ? '#52B89A' : '#FF8080';
+      const crSign = deltaCR >= 0 ? '+' : '';
+      document.getElementById('m_cr_' + i).textContent = (newOverall * 100).toFixed(1) + '%';
+      document.getElementById('m_cr_d_' + i).textContent = crSign + (deltaCR * 100).toFixed(1) + 'pp';
+      document.getElementById('m_cr_d_' + i).style.color = color;
+      document.getElementById('m_rev_' + i).textContent = '$' + newRevenue.toLocaleString();
+      const revSign = deltaRev >= 0 ? '+$' : '-$';
+      document.getElementById('m_rev_d_' + i).textContent = revSign + Math.abs(deltaRev).toLocaleString();
+      document.getElementById('m_rev_d_' + i).style.color = color;
+    }
+    function fmtInput(i) {
+      const el = document.getElementById('m_in_' + i);
+      const v = parseFloat(el.value);
+      if (!isNaN(v)) el.value = v.toFixed(1);
+    }
+    window.onload = function() { [1,2,3,4].forEach(recalcModel); };
+  </script>
+
+  <!-- TR1: CR Checkout → Purchase -->
+  <div class="card {{TR1_Z}}" style="left:420px;top:40px;width:195px;height:180px;">
+    <div class="metric-label">CR Checkout → Purchase</div>
+    <div class="metric-value">{{TR1_VAL}}</div>
+    <div class="changes">
+      <div class="change-block">
+        <span class="change-period">VS TGT</span>
+        <span class="change-val {{TR1_GC}}"><span class="arrow">{{TR1_GA}}</span>{{TR1_GP}}</span>
+        <span class="change-prev">Target {{TR1_TG}}</span>
+      </div>
+    </div>
+    <div class="progress-area {{TR1_Z}}">
+      <div class="progress-track"><div class="progress-fill" style="width:{{TR1_FW}}"></div></div>
+      <span class="progress-pct">{{TR1_PT}}</span>
+    </div>
+  </div>
+
+  <!-- TR2: CR ATC → Checkout -->
+  <div class="card {{TR2_Z}}" style="left:420px;top:234px;width:195px;height:180px;">
+    <div class="metric-label">CR Add to Cart → Checkout</div>
+    <div class="metric-value">{{TR2_VAL}}</div>
+    <div class="changes">
+      <div class="change-block">
+        <span class="change-period">VS TGT</span>
+        <span class="change-val {{TR2_GC}}"><span class="arrow">{{TR2_GA}}</span>{{TR2_GP}}</span>
+        <span class="change-prev">Target {{TR2_TG}}</span>
+      </div>
+    </div>
+    <div class="progress-area {{TR2_Z}}">
+      <div class="progress-track"><div class="progress-fill" style="width:{{TR2_FW}}"></div></div>
+      <span class="progress-pct">{{TR2_PT}}</span>
+    </div>
+  </div>
+
+  <!-- TR3: CR PV → ATC -->
+  <div class="card {{TR3_Z}}" style="left:420px;top:428px;width:195px;height:180px;">
+    <div class="metric-label">CR Product Views → Add to Cart</div>
+    <div class="metric-value">{{TR3_VAL}}</div>
+    <div class="changes">
+      <div class="change-block">
+        <span class="change-period">VS TGT</span>
+        <span class="change-val {{TR3_GC}}"><span class="arrow">{{TR3_GA}}</span>{{TR3_GP}}</span>
+        <span class="change-prev">Target {{TR3_TG}}</span>
+      </div>
+    </div>
+    <div class="progress-area {{TR3_Z}}">
+      <div class="progress-track"><div class="progress-fill" style="width:{{TR3_FW}}"></div></div>
+      <span class="progress-pct">{{TR3_PT}}</span>
+    </div>
+  </div>
+
+  <!-- TR4: CR Sessions → PV -->
+  <div class="card {{TR4_Z}}" style="left:420px;top:622px;width:195px;height:180px;">
+    <div class="metric-label">CR Sessions → Product Views</div>
+    <div class="metric-value">{{TR4_VAL}}</div>
+    <div class="changes">
+      <div class="change-block">
+        <span class="change-period">VS TGT</span>
+        <span class="change-val {{TR4_GC}}"><span class="arrow">{{TR4_GA}}</span>{{TR4_GP}}</span>
+        <span class="change-prev">Target {{TR4_TG}}</span>
+      </div>
+    </div>
+    <div class="progress-area {{TR4_Z}}">
+      <div class="progress-track"><div class="progress-fill" style="width:{{TR4_FW}}"></div></div>
+      <span class="progress-pct">{{TR4_PT}}</span>
+    </div>
+  </div>
+
+  <!-- Tree arrows: stroke color and width vary by zone and loss share -->
+  <svg class="tree-arrows" viewBox="0 0 900 840">
+    <defs>
+      <marker id="ag2-good" markerWidth="20" markerHeight="20" refX="14" refY="10"
+              orient="auto" markerUnits="userSpaceOnUse">
+        <polyline points="5,4 14,10 5,16" fill="none" stroke="#0E9C7D"
+                  stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </marker>
+      <marker id="ag2-warn" markerWidth="20" markerHeight="20" refX="14" refY="10"
+              orient="auto" markerUnits="userSpaceOnUse">
+        <polyline points="5,4 14,10 5,16" fill="none" stroke="#FF9500"
+                  stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </marker>
+      <marker id="ag2-bad" markerWidth="20" markerHeight="20" refX="14" refY="10"
+              orient="auto" markerUnits="userSpaceOnUse">
+        <polyline points="5,4 14,10 5,16" fill="none" stroke="#FF5C60"
+                  stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </marker>
+    </defs>
+    <!-- TA1: TR1 (center-y=130) → Root (center-y=421) -->
+    <path d="M 420,130 H 314 A 14,14 0 0,0 300,144 V 407 A 14,14 0 0,1 286,421 H 240"
+          fill="none" stroke="{{TA1_SC}}" stroke-width="{{TA1_SW}}" stroke-linecap="round" marker-end="url(#ag2-{{TA1_MK}})"/>
+    <text x="367" y="122" text-anchor="middle" font-size="11" fill="#b0b0b0"
+          font-family="Inter,-apple-system,sans-serif" font-weight="600">{{TA1_LS}} of loss</text>
+    <!-- TA2: TR2 (center-y=324) → Root (center-y=421) -->
+    <path d="M 420,324 H 314 A 14,14 0 0,0 300,338 V 407 A 14,14 0 0,1 286,421 H 240"
+          fill="none" stroke="{{TA2_SC}}" stroke-width="{{TA2_SW}}" stroke-linecap="round" marker-end="url(#ag2-{{TA2_MK}})"/>
+    <text x="367" y="316" text-anchor="middle" font-size="11" fill="#b0b0b0"
+          font-family="Inter,-apple-system,sans-serif" font-weight="600">{{TA2_LS}} of loss</text>
+    <!-- TA3: TR3 (center-y=518) → Root (center-y=421) -->
+    <path d="M 420,518 H 314 A 14,14 0 0,1 300,504 V 435 A 14,14 0 0,0 286,421 H 240"
+          fill="none" stroke="{{TA3_SC}}" stroke-width="{{TA3_SW}}" stroke-linecap="round" marker-end="url(#ag2-{{TA3_MK}})"/>
+    <text x="367" y="510" text-anchor="middle" font-size="11" fill="#b0b0b0"
+          font-family="Inter,-apple-system,sans-serif" font-weight="600">{{TA3_LS}} of loss</text>
+    <!-- TA4: TR4 (center-y=712) → Root (center-y=421) -->
+    <path d="M 420,712 H 314 A 14,14 0 0,1 300,698 V 435 A 14,14 0 0,0 286,421 H 240"
+          fill="none" stroke="{{TA4_SC}}" stroke-width="{{TA4_SW}}" stroke-linecap="round" marker-end="url(#ag2-{{TA4_MK}})"/>
+    <text x="367" y="704" text-anchor="middle" font-size="11" fill="#b0b0b0"
+          font-family="Inter,-apple-system,sans-serif" font-weight="600">{{TA4_LS}} of loss</text>
+  </svg>
+
+  </div><!-- /tree-body -->
+</div><!-- /tree-section -->
+</div><!-- /panel-tree -->
+
+<!-- ══════════════════════════════ SEGMENTS ══════════════════════════════ -->
+<div id="panel-segments" class="tab-panel" style="display:none;">
+<div style="padding:20px 24px 16px;">
+  <div style="font-size:11px; font-weight:600; color:#BBBBBB; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px;">Segments</div>
+  <p style="font-size:11px; color:#aaa; line-height:1.55; margin:0 0 14px;">Breakdown by User Type, Traffic Source, and Device. Spot which segments drive or drag overall conversion.</p>
+{{SEG_EMPTY_STATE}}
+</div>
+<div class="right-panel">
+
+  <div class="panel-section">
+    <div class="panel-title">User Type</div>
+    <table class="seg-table">
+      <thead><tr>
+        <th class="th-seg">Segment</th><th>Sessions</th>
+        <th>Sessions →<br>Product View</th><th>Product View →<br>Add to Cart</th>
+        <th>Add to Cart →<br>Checkout</th><th>Checkout →<br>Purchase</th>
+        <th>CR%<br><span style="font-size:8px;font-weight:400;color:#ccc;text-transform:none;letter-spacing:0;">vs avg</span></th><th>Purchases</th><th>AOV</th><th>Revenue</th><th>Rev Δ</th>
+      </tr></thead>
+      <tbody>{{SEG_UT_R}}</tbody>
+    </table>
+    <div class="seg-insight">{{SEG_UT_I}}</div>
+  </div>
+
+  <div class="panel-section">
+    <div class="panel-title">Traffic Source</div>
+    <table class="seg-table">
+      <thead><tr>
+        <th class="th-seg">Segment</th><th>Sessions</th>
+        <th>Sessions →<br>Product View</th><th>Product View →<br>Add to Cart</th>
+        <th>Add to Cart →<br>Checkout</th><th>Checkout →<br>Purchase</th>
+        <th>CR%<br><span style="font-size:8px;font-weight:400;color:#ccc;text-transform:none;letter-spacing:0;">vs avg</span></th><th>Purchases</th><th>AOV</th><th>Revenue</th><th>Rev Δ</th>
+      </tr></thead>
+      <tbody>{{SEG_SC_R}}</tbody>
+    </table>
+    <div class="seg-insight">{{SEG_SC_I}}</div>
+  </div>
+
+  <div class="panel-section">
+    <div class="panel-title">Device</div>
+    <table class="seg-table">
+      <thead><tr>
+        <th class="th-seg">Segment</th><th>Sessions</th>
+        <th>Sessions →<br>Product View</th><th>Product View →<br>Add to Cart</th>
+        <th>Add to Cart →<br>Checkout</th><th>Checkout →<br>Purchase</th>
+        <th>CR%<br><span style="font-size:8px;font-weight:400;color:#ccc;text-transform:none;letter-spacing:0;">vs avg</span></th><th>Purchases</th><th>AOV</th><th>Revenue</th><th>Rev Δ</th>
+      </tr></thead>
+      <tbody>{{SEG_DV_R}}</tbody>
+    </table>
+    <div class="seg-insight">{{SEG_DV_I}}</div>
+  </div>
+
+</div><!-- /right-panel -->
+</div><!-- /panel-segments -->
+
+</div><!-- /page -->
+
+<script>
+function switchTab(name) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.style.display = 'none');
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('panel-' + name).style.display = 'block';
+  document.querySelector('[data-tab="' + name + '"]').classList.add('active');
+}
+
+function copyCommand(cmd, btn) {
+  var original = btn.textContent;
+  function done(ok) {
+    btn.textContent = ok ? 'Copied!' : 'Copy failed — type it manually';
+    setTimeout(function() { btn.textContent = original; }, 1500);
+  }
+  function fallbackCopy() {
+    try {
+      var ta = document.createElement('textarea');
+      ta.value = cmd;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      var ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      done(ok);
+    } catch (e) {
+      done(false);
+    }
+  }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(cmd).then(function() { done(true); }, fallbackCopy);
+  } else {
+    fallbackCopy();
+  }
+}
+</script>
+
+</body>
+</html>
