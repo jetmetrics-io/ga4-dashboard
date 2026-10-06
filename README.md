@@ -13,7 +13,7 @@ A GA4 e-commerce funnel dashboard that runs entirely in the browser: the user si
 | `app.js` | Google sign-in (GIS token model), property list (Admin API), period presets with their usual comparison (PoP), segment filters, data loading, targets, rendering. Exposes `window.JMApp` for debugging |
 | `template.html` | Dashboard template with `{{PLACEHOLDERS}}`: Map or Tree on the left (title + view switch), Segments on the right |
 | `claude_prompt.md` | Analysis brief (JetMetrics methodology) that "Copy for Claude" puts above the dashboard data. Plain text — edit freely |
-| `tilda/dashboard-beta.html` | The HTML block pasted into the Tilda page; loads these files from jsDelivr |
+| `tilda/funnel-dashboard.html` | The HTML block pasted into the Tilda page; loads these files from jsDelivr |
 
 ## Updating the live page
 
