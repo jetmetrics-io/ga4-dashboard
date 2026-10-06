@@ -19,7 +19,7 @@
   const state = {
     token: null, tokenExp: 0, tokenClient: null, expired: false,
     properties: [], propertyId: null,
-    template: null, lastData: null, loading: false, loadedAt: 0, seq: 0,
+    template: null, lastData: null, loading: false, loadedAt: 0, seq: 0, conn: 0,
     view: null, filters: {}, options: {},
   };
   FILTERS.forEach(([k]) => { state.filters[k] = []; state.options[k] = []; });
@@ -257,11 +257,13 @@
   async function refreshToken() {
     const session = load("session");
     if (!authServer() || !session) return false;
+    const conn = state.conn;
     try {
       const res = await fetch(`${authServer()}/auth/refresh`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ session }) });
       if (res.status === 401) { unstore("session"); return false; }
       if (!res.ok) return false;
       const j = await res.json();
+      if (conn !== state.conn) return false; // disconnected meanwhile
       setToken(j.access_token, j.expires_in);
       state.expired = false;
       return true;
@@ -329,9 +331,11 @@
 
   // Properties, then the dashboard for the last used property.
   async function afterConnect(retried = false) {
+    const conn = state.conn;
     try {
       if (!state.properties.length) await loadProperties();
     } catch (e) {
+      if (conn !== state.conn) return;
       if (e.status === 401) {
         if (!retried && await refreshToken()) return afterConnect(true);
         expire();
@@ -340,6 +344,7 @@
       message(`Could not load your Google Analytics properties: ${e.message}.`, "error");
       return;
     }
+    if (conn !== state.conn) return; // disconnected meanwhile
     if (!state.properties.length) {
       message("This Google account has no Google Analytics 4 properties. Use another account from the green button.", "error");
       renderAll();
@@ -381,6 +386,11 @@
   }
 
   function disconnect() {
+    // Whatever is still loading belongs to the old connection: drop it
+    state.conn++;
+    state.seq++;
+    state.pending = null;
+    setLoading(false);
     const t = state.token, session = load("session");
     if (authServer() && session) {
       fetch(`${authServer()}/auth/revoke`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ session }) }).catch(() => {});
@@ -425,6 +435,7 @@
   }
 
   async function loadProperties() {
+    const conn = state.conn;
     setLoading(true);
     try {
       const props = [];
@@ -440,7 +451,7 @@
         });
         pageToken = json.nextPageToken || "";
       } while (pageToken);
-      state.properties = props;
+      if (conn === state.conn) state.properties = props;
     } finally {
       setLoading(false);
     }
@@ -678,7 +689,11 @@
 
   async function build(retried = false) {
     if (!state.propertyId) { renderAll(); return; }
-    if (!(await ensureToken())) { state.pending = build; expire(); return; }
+    const conn = state.conn;
+    if (!(await ensureToken())) {
+      if (conn !== state.conn) return; // disconnected meanwhile
+      state.pending = build; expire(); return;
+    }
     const prop = property();
     const propertyId = state.propertyId;
     store("property", propertyId);
@@ -708,6 +723,7 @@
       state.lastPropertyId = propertyId;
       state.loadedAt = Date.now();
       if (!state.template) state.template = await (await fetch(`${(window.JM_CONFIG && JM_CONFIG.assetsBase) || ""}template.html${assetVersion()}`)).text();
+      if (seq !== state.seq) return;
       render();
     } catch (e) {
       if (seq !== state.seq) return;
