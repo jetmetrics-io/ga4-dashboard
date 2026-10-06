@@ -9,7 +9,7 @@ A GA4 e-commerce funnel dashboard that runs entirely in the browser: the user si
 | `index.html` | Local development page (`python3 -m http.server 8080 --bind 127.0.0.1`, open http://localhost:8080) |
 | `config.js` | OAuth Client ID (public by design) and asset base for local development |
 | `shell.js` | App shell: scoped CSS and controls, mounted into `#jm-app` |
-| `core.js` | GA4 query plan (13 reports in 3 `batchRunReports` calls), metric calculations for the Map, Tree and Segments tabs, template filling. Exposes `window.JMCore` |
+| `core.js` | GA4 query plan (15 reports in 3 `batchRunReports` calls), metric calculations for the Map, Tree and Segments tabs, template filling. Exposes `window.JMCore` |
 | `app.js` | Google sign-in (GIS token model), property list (Admin API), data loading, targets, rendering. Exposes `window.JMApp` for debugging |
 | `template.html` | Dashboard template with `{{PLACEHOLDERS}}` |
 | `claude_prompt.md` | Analysis brief (JetMetrics methodology) that "Copy for Claude" puts above the dashboard data. Plain text — edit freely |

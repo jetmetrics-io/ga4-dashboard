@@ -42,9 +42,10 @@
     };
   }
 
-  // ── GA4 query plan: all tabs = 13 reports in 3 batch calls ─────────────────
+  // ── GA4 query plan: all tabs = 15 reports in 3 batch calls ─────────────────
 
-  const SEGMENT_DIMS = { user_type: "newVsReturning", traffic_source: "sessionDefaultChannelGrouping", device: "deviceCategory" };
+  // landingPage = page path without the query string.
+  const SEGMENT_DIMS = { user_type: "newVsReturning", traffic_source: "sessionDefaultChannelGrouping", device: "deviceCategory", landing_page: "landingPage" };
 
   function funnelFilter() {
     return { filter: { fieldName: "eventName", inListFilter: { values: FUNNEL_EVENTS } } };
@@ -607,7 +608,49 @@
 
   // ── Segments tab (processor.py process_segments) ───────────────────────────
 
-  const SEG_PREFIX = { user_type: "UT", traffic_source: "SC", device: "DV" };
+  const SEG_PREFIX = { user_type: "UT", traffic_source: "SC", device: "DV", landing_page: "LP" };
+
+  // Landing pages: top 5 by current sessions, the rest summed into "Other"; technical values left out.
+  // The Total row still comes from the global aggregates.
+  const LP_EXCLUDE = ["(not set)", "(direct)", "Unassigned"];
+  const LP_TOP = 5;
+
+  function _groupLanding(seg) {
+    const keep = (r) => !LP_EXCLUDE.includes(r.segment);
+    const top = seg.query_b_current.filter(keep).sort((a, b) => b.sessions - a.sessions).slice(0, LP_TOP).map((r) => r.segment);
+    const name = (s) => (top.includes(s) ? s : "Other");
+    const groupB = (rows) => {
+      const out = new Map();
+      rows.filter(keep).forEach((r) => {
+        const n = name(r.segment);
+        const o = out.get(n) || { segment: n, sessions: 0, totalRevenue: 0, transactions: 0 };
+        o.sessions += r.sessions || 0;
+        o.totalRevenue += r.totalRevenue || 0;
+        o.transactions += r.transactions || 0;
+        out.set(n, o);
+      });
+      return [...out.values()];
+    };
+    const a = new Map();
+    seg.query_a_current.filter(keep).forEach((r) => {
+      const n = name(r.segment), k = `${n}|${r.eventName}`;
+      const o = a.get(k) || { eventName: r.eventName, segment: n, sessions: 0 };
+      o.sessions += r.sessions || 0;
+      a.set(k, o);
+    });
+    const ordered = groupB(seg.query_b_current).sort((x, y) => (x.segment === "Other") - (y.segment === "Other") || y.sessions - x.sessions);
+    return { query_a_current: [...a.values()], query_b_current: ordered, query_b_pop: groupB(seg.query_b_pop) };
+  }
+
+  function _rowsFor(key, seg) {
+    const g = key === "landing_page" ? _groupLanding(seg) : seg;
+    return _segmentRows(g.query_a_current, g.query_b_current, g.query_b_pop);
+  }
+
+  // Segment names come from GA4 as is (landing page paths included): escape before putting them into HTML.
+  function _esc(v) {
+    return String(v).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
 
   function _mcClass(val, totalVal) {
     if (!isNum(val) || !isNum(totalVal) || totalVal === 0) return "";
@@ -661,7 +704,7 @@
     }
     const render = (name, sessions, m, purchases, revenue, rowCls, cls) => {
       const [dtxt, dcls] = _fmtDelta(m.delta);
-      return `<tr class="${rowCls}"><td class="seg-name">${name}</td><td>${_fmtInt(sessions)}</td>` +
+      return `<tr class="${rowCls}"><td class="seg-name" title="${_esc(name)}"><span>${_esc(name)}</span></td><td>${_fmtInt(sessions)}</td>` +
         `<td class="${cls[0]}">${_fmtPct(m.cr1)}</td><td class="${cls[1]}">${_fmtPct(m.cr2)}</td>` +
         `<td class="${cls[2]}">${_fmtPct(m.cr3)}</td><td class="${cls[3]}">${_fmtPct(m.cr4)}</td>` +
         `<td class="${cls[4]}">${_fmtPct(m.crp)}</td><td>${_fmtInt(purchases)}</td>` +
@@ -682,12 +725,12 @@
     const parts = [];
     if (sized.length >= 2) {
       const best = sized.reduce((a, b) => ((_rowMetrics(b).crp || 0) > (_rowMetrics(a).crp || 0) ? b : a));
-      parts.push(`<b>${best.name}</b> converts best: <span class="hi-good">${_fmtPct(_rowMetrics(best).crp)}</span> vs ${_fmtPct(t.crp)} on average.`);
+      parts.push(`<b>${_esc(best.name)}</b> converts best: <span class="hi-good">${_fmtPct(_rowMetrics(best).crp)}</span> vs ${_fmtPct(t.crp)} on average.`);
     }
     const pr = rows.length >= 2 && overshoot < 0 ? rows.find((r) => r.name === problem) : null;
     if (pr) {
       const [dtxt] = _fmtDelta(_rowMetrics(pr).delta);
-      parts.push(`Revenue change in <span class="hi-bad">${pr.name}</span> (${dtxt} vs previous period) is the furthest below what its share would predict.`);
+      parts.push(`Revenue change in <span class="hi-bad">${_esc(pr.name)}</span> (${dtxt} vs previous period) is the furthest below what its share would predict.`);
     }
     if (key === "user_type" && rows.some((r) => r.name === "(not set)")) {
       parts.push("“(not set)” is a technical GA4 value: the visitor type could not be determined.");
@@ -705,7 +748,7 @@
     Object.keys(SEG_PREFIX).forEach((k) => {
       const seg = (d.segments || {})[k];
       if (!seg) return;
-      const rows = _segmentRows(seg.query_a_current, seg.query_b_current, seg.query_b_pop);
+      const rows = _rowsFor(k, seg);
       const table = _segmentTable(rows, totals);
       p[`SEG_${SEG_PREFIX[k]}_R`] = table.html;
       p[`SEG_${SEG_PREFIX[k]}_I`] = _segmentInsight(k, rows, totals, table.problem, table.overshoot);
@@ -755,7 +798,7 @@
       out.push("No targets set yet.");
     }
 
-    const segNames = { user_type: "User type", traffic_source: "Traffic source", device: "Device" };
+    const segNames = { user_type: "User type", traffic_source: "Traffic source", device: "Device", landing_page: "Landing page (top 5 + Other)" };
     const cur = d.agg_current, pop = d.agg_pop, fc = d.funnel_current;
     const totals = { name: "Total", sessions: cur.sessions, s2: fc.view_item, s3: fc.add_to_cart, s4: fc.begin_checkout, s5: fc.purchase,
       revenue: cur.totalRevenue, transactions: cur.transactions, pop_revenue: pop.totalRevenue };
@@ -767,7 +810,7 @@
     Object.keys(segNames).forEach((k) => {
       const seg = (d.segments || {})[k];
       if (!seg || !seg.query_b_current.length) return;
-      const rows = _segmentRows(seg.query_a_current, seg.query_b_current, seg.query_b_pop);
+      const rows = _rowsFor(k, seg);
       out.push(`\n### Segments: ${segNames[k]}`);
       out.push(mdTable(["Segment", "Sessions", "S→PV", "PV→ATC", "ATC→CHK", "CHK→PUR", "CR", "Purchases", "AOV", "Revenue", "Revenue vs previous"],
         rows.map(segRow).concat([segRow(totals)])));

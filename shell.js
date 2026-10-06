@@ -30,8 +30,8 @@ window.JMShell = {
   #jm-app .targets input { width: 80px; font: inherit; padding: 5px 8px; border: 1px solid var(--jm-line); border-radius: 6px; }
   #jm-app .targets-actions { grid-column: 1 / -1; display: flex; gap: 8px; }
   #jm-app .targets-note { grid-column: 1 / -1; font-size: 12px; color: var(--jm-muted); }
-  #jm-app .jm-stage { display: flex; justify-content: center; padding: 16px; }
-  #jm-app iframe { width: 100%; max-width: 980px; height: 600px; border: 0; background: var(--jm-panel); border-radius: 12px; }
+  #jm-app .jm-stage { display: flex; justify-content: center; }
+  #jm-app iframe { display: block; width: 100%; height: 600px; border: 0; background: var(--jm-panel); }
   `,
 
   html: `

@@ -5,9 +5,19 @@
 <title>Funnel Dashboard</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #E2E2E0; font-family: Inter, -apple-system, sans-serif; padding: 40px; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; }
+  body { background: white; font-family: Inter, -apple-system, sans-serif; }
 
-  .page { width: 900px; background: white; border-radius: 12px; box-shadow: 0 2px 20px rgba(0,0,0,0.09); overflow: hidden; }
+  .page { width: 100%; background: white; overflow: hidden; }
+
+  /* Two halves: Map or Tree on the left, Segments on the right. Map and Tree keep their 900px design and scale down to fit their half. */
+  .split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
+  .split-left, .split-right { min-width: 0; }
+  .split-right { border-left: 1px solid #F0F0EE; }
+  .fit { width: 900px; margin: 0 auto; }
+  .tab-bar.split { align-items: end; }
+  .tab-bar .tabs { display: flex; gap: 3px; padding-left: 20px; }
+  .tab-bar .tabs-right { padding-left: 24px; }
+  .tab-btn.static { cursor: default; }
 
   .app-header { background: #F5F5F3; border-bottom: 1px solid #E4E4E2; padding: 11px 20px; display: flex; align-items: center; justify-content: space-between; }
   .app-brand { display: flex; align-items: center; gap: 8px; }
@@ -17,6 +27,7 @@
   .tab-panel { display: block; }
 
   .tab-bar { background: #EEEEEC; padding: 8px 20px 0; border-bottom: 1px solid #E0E0DE; display: flex; gap: 3px; }
+  .tab-bar.split { display: grid; padding: 8px 0 0; }
   .tab-btn {
     font-family: Inter, -apple-system, sans-serif;
     font-size: 13px; font-weight: 400; color: #999;
@@ -113,14 +124,14 @@
   }
 
   .right-panel {
-    width: 900px; display: grid; grid-template-columns: 1fr;
-    gap: 20px; padding: 24px;
+    display: grid; grid-template-columns: minmax(0, 1fr);
+    gap: 20px; padding: 0 20px 24px;
   }
-
   .panel-section {
     background: white; border-radius: 16px;
     box-shadow: 0 1px 6px rgba(0,0,0,0.07), 0 4px 14px rgba(0,0,0,0.06);
-    border: 1px solid #f0f0f0; padding: 20px;
+    border: 1px solid #f0f0f0; padding: 18px 16px;
+    min-width: 0; overflow-x: auto;
   }
 
   .panel-title {
@@ -132,7 +143,7 @@
   .seg-table th {
     font-size: 9px; font-weight: 600; text-transform: uppercase;
     letter-spacing: 0.5px; color: #bbb; text-align: right;
-    padding: 0 3px 8px 3px; border-bottom: 1px solid #f0f0f0; white-space: nowrap;
+    padding: 0 3px 8px 3px; border-bottom: 1px solid #f0f0f0; vertical-align: bottom;
   }
   .seg-table th.th-seg { text-align: left; padding-left: 0; }
   .seg-table td {
@@ -141,6 +152,7 @@
     white-space: nowrap; vertical-align: middle;
   }
   .seg-table .seg-name { text-align: left; padding-left: 0; color: #555; font-weight: 500; font-size: 10.5px; }
+  .seg-table .seg-name span { display: inline-block; max-width: 150px; overflow: hidden; text-overflow: ellipsis; vertical-align: bottom; }
   .seg-table .pos { color: #52B89A; }
   .seg-table .neg { color: #FF8080; }
   .seg-table .total-row td {
@@ -245,11 +257,17 @@
   <span style="font-size:12px; color:#999;">{{PERIOD}}</span>
 </div>
 
-<div class="tab-bar">
-  <button class="tab-btn active" data-tab="map" onclick="switchTab('map')">Map</button>
-  <button class="tab-btn" data-tab="tree" onclick="switchTab('tree')">Tree</button>
-  <button class="tab-btn" data-tab="segments" onclick="switchTab('segments')">Segments</button>
+<div class="tab-bar split">
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="map" onclick="switchTab('map')">Map</button>
+    <button class="tab-btn" data-tab="tree" onclick="switchTab('tree')">Tree</button>
+  </div>
+  <div class="tabs tabs-right"><span class="tab-btn active static">Segments</span></div>
 </div>
+
+<div class="split">
+<div class="split-left">
+<div class="fit">
 
 <!-- ══════════════════════════════ MAP ══════════════════════════════ -->
 <div id="panel-map" class="tab-panel">
@@ -1201,12 +1219,14 @@
   </div><!-- /tree-body -->
 </div><!-- /tree-section -->
 </div><!-- /panel-tree -->
+</div><!-- /fit -->
+</div><!-- /split-left -->
 
 <!-- ══════════════════════════════ SEGMENTS ══════════════════════════════ -->
-<div id="panel-segments" class="tab-panel" style="display:none;">
+<div id="panel-segments" class="split-right">
 <div style="padding:20px 24px 16px;">
   <div style="font-size:11px; font-weight:600; color:#BBBBBB; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px;">Segments</div>
-  <p style="font-size:11px; color:#aaa; line-height:1.55; margin:0 0 14px;">Breakdown by User Type, Traffic Source, and Device. Spot which segments drive or drag overall conversion.</p>
+  <p style="font-size:11px; color:#aaa; line-height:1.55; margin:0 0 14px;">Breakdown by User Type, Traffic Source, Device, and Landing Page. Spot which segments drive or drag overall conversion.</p>
 {{SEG_EMPTY_STATE}}
 </div>
 <div class="right-panel">
@@ -1253,15 +1273,39 @@
     <div class="seg-insight">{{SEG_DV_I}}</div>
   </div>
 
+  <div class="panel-section">
+    <div class="panel-title">Landing Page</div>
+    <table class="seg-table">
+      <thead><tr>
+        <th class="th-seg">Segment</th><th>Sessions</th>
+        <th>Sessions →<br>Product View</th><th>Product View →<br>Add to Cart</th>
+        <th>Add to Cart →<br>Checkout</th><th>Checkout →<br>Purchase</th>
+        <th>CR%<br><span style="font-size:8px;font-weight:400;color:#ccc;text-transform:none;letter-spacing:0;">vs avg</span></th><th>Purchases</th><th>AOV</th><th>Revenue</th><th>Rev Δ</th>
+      </tr></thead>
+      <tbody>{{SEG_LP_R}}</tbody>
+    </table>
+    <div class="seg-insight">{{SEG_LP_I}}</div>
+  </div>
+
 </div><!-- /right-panel -->
 </div><!-- /panel-segments -->
+</div><!-- /split -->
 
 </div><!-- /page -->
 
 <script>
+// Map and Tree are drawn at 900px; scale them down when their half of the page is narrower.
+function fitLeft() {
+  var box = document.querySelector('.fit');
+  var avail = box.parentElement.clientWidth;
+  box.style.zoom = avail < 900 ? String(avail / 900) : '1';
+}
+window.addEventListener('resize', fitLeft);
+fitLeft();
+
 function switchTab(name) {
   document.querySelectorAll('.tab-panel').forEach(p => p.style.display = 'none');
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-btn[data-tab]').forEach(b => b.classList.remove('active'));
   document.getElementById('panel-' + name).style.display = 'block';
   document.querySelector('[data-tab="' + name + '"]').classList.add('active');
 }
