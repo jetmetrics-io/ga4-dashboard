@@ -269,9 +269,14 @@ async function revoke(request, env, headers) {
   return json({ ok: true }, 200, headers);
 }
 
+// Pages may still run app.js from before 06.10.26 (the CDN served stale copies), which calls /auth/…:
+// treat it as the product's routes. Remove once the dashboard's files are served from here.
+const LEGACY = "/auth/";
+
 export default {
   async fetch(request, env) {
-    const { pathname } = new URL(request.url);
+    let { pathname } = new URL(request.url);
+    if (pathname.startsWith(LEGACY)) pathname = AUTH + pathname.slice(LEGACY.length - 1);
     const headers = cors(env, request);
     if (request.method === "OPTIONS") return new Response(null, { status: Object.keys(headers).length ? 204 : 403, headers });
     if (request.method === "GET" && pathname === `${AUTH}/start`) return start(request, env);
