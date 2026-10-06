@@ -959,14 +959,14 @@
     if (d.filters_label) out.push(`Filters applied to every number below: ${d.filters_label}.`);
 
     out.push("\n### Funnel metric map");
-    const head = ["Metric", "Current", "Previous period", "Change"].concat(d.yoy_available ? ["Last year", "Change"] : []);
+    const head = ["Metric", "Current", "Comparison period (PoP)", "Change"].concat(d.yoy_available ? ["Last year", "Change"] : []);
     out.push(mdTable(head, SUMMARY_MAP.map(([k, label]) => [label, p[`${k}_VAL`], p[`${k}_PP_P`] || "—", p[`${k}_PP_V`]]
       .concat(d.yoy_available ? [p[`${k}_YY_P`] || "—", p[`${k}_YY_V`]] : []))));
 
     const chans = [1, 2, 3, 4, 5, 6].filter((i) => p[`S${i}_N`]);
     if (chans.length) {
       out.push("\n### Traffic sources (sessions)");
-      out.push(mdTable(["Channel", "Current", "Previous period", "Change"], chans.map((i) => [p[`S${i}_N`], p[`S${i}_VAL`], p[`S${i}_PP_P`] || "—", p[`S${i}_PP_V`]])));
+      out.push(mdTable(["Channel", "Current", "Comparison period (PoP)", "Change"], chans.map((i) => [p[`S${i}_N`], p[`S${i}_VAL`], p[`S${i}_PP_P`] || "—", p[`S${i}_PP_V`]])));
     }
 
     out.push("\n### Driver tree: conversion steps vs targets");
