@@ -27,8 +27,27 @@
   .split-right .help-wrap { margin-left: auto; }
   .help { width: 24px; height: 24px; border-radius: 50%; border: 1px solid #E3E3E0; background: white; color: #8A8A8A; font: 600 12px Inter, -apple-system, sans-serif; cursor: help; }
   .help:hover, .help:focus-visible { color: #1A1A1A; border-color: #CFCFCB; outline: none; }
-  .help-tip { display: none; position: absolute; right: 0; top: calc(100% + 8px); z-index: 40; width: 300px; padding: 10px 12px; background: #1A1A1A; color: #F2F2F0; border-radius: 8px; font-size: 12.5px; line-height: 1.5; box-shadow: 0 6px 20px rgba(0,0,0,0.18); }
-  .help-wrap:hover .help-tip, .help-wrap:focus-within .help-tip { display: block; }
+  /* Hints: one light card for the "?" help and for hover hints on marks */
+  .tip { position: absolute; z-index: 100; width: 340px; max-width: calc(100vw - 16px); background: white; border: 1px solid #E3E3E0; border-radius: 10px; box-shadow: 0 8px 28px rgba(0,0,0,0.12); padding: 12px 14px; font-size: 12.5px; line-height: 1.5; color: #4A4A4A; text-align: left; }
+  .tip[hidden] { display: none; }
+  .tip-h { font-size: 13px; font-weight: 600; color: #1A1A1A; margin-bottom: 4px; }
+  .tip p { margin: 0 0 6px; }
+  .tip b { color: #1A1A1A; font-weight: 600; }
+  .tip-s { font-size: 10.5px; font-weight: 600; color: #8A8A8A; text-transform: uppercase; letter-spacing: 0.6px; margin: 10px 0 6px; }
+  .tip-l { list-style: none; display: grid; gap: 6px; }
+  .tip-l li { display: grid; grid-template-columns: 104px 1fr; gap: 10px; align-items: center; }
+  .sw { display: inline-flex; align-items: center; justify-content: center; height: 20px; padding: 0 7px; border-radius: 4px; font-size: 11px; font-weight: 600; white-space: nowrap; justify-self: start; }
+  .sw-up { color: #52B89A; background: #EDF7F3; }
+  .sw-down { color: #FF5C60; background: #FFF0F0; }
+  .sw-good { color: #0E9C7D; background: #EDF7F3; }
+  .sw-warn { color: #FF9500; background: #FFF5E6; }
+  .sw-bad { color: #FF5C60; background: #FFF0F0; }
+  .sw-badge { color: #FF5C60; background: white; border: 1.5px solid #FF5C60; border-radius: 20px; font-size: 10px; }
+  .sw-row { color: #FF5C60; background: rgba(255,92,96,0.06); border-left: 2.5px solid #FF5C60; border-radius: 0; justify-content: flex-start; }
+  .sw-bar { justify-self: start; width: 72px; height: 7px; border-radius: 4px; }
+  .sw-bar.good { background: #0E9C7D; } .sw-bar.warn { background: #FF9500; } .sw-bar.bad { background: #FF5C60; }
+  .sw-svg { justify-self: start; display: block; }
+  [data-tip], [data-tip-text] { cursor: help; }
   .verdicts { padding: 10px 20px 16px; }
   .verdicts .tree-verdict { margin-bottom: 0; }
   .verdicts .empty-state-bar { margin-bottom: 0; }
@@ -253,7 +272,7 @@
     <button class="vt-btn active" data-tab="map" onclick="switchTab('map')">Map</button>
     <button class="vt-btn" data-tab="tree" onclick="switchTab('tree')">Tree</button>
   </div>
-  <span class="help-wrap"><button class="help" type="button" aria-label="About this view" aria-describedby="leftHelp">?</button><span class="help-tip" id="leftHelp" role="tooltip"></span></span>
+  <span class="help-wrap"><button class="help" id="leftHelp" type="button" aria-label="About this view" data-tip="help-map">?</button></span>
 </div>
 <div class="tgt" id="tgtLine" style="display:none;">Targets: <b>{{TGT_SRC}}</b> · <button type="button" onclick="openTargets()">Change</button></div>
 <div class="verdicts">
@@ -312,7 +331,7 @@
   <div class="col-header" style="left:655px; width:195px; text-align:center;">Supporting metrics</div>
 
   <!-- Universal problem badge. BG_DSP = "block" or "none" -->
-  <div class="problem-badge" style="display:{{BG_DSP}}; left:{{BG_LFT}}; top:{{BG_TOP}}; width:{{BG_WDT}};">
+  <div class="problem-badge" style="display:{{BG_DSP}}; left:{{BG_LFT}}; top:{{BG_TOP}}; width:{{BG_WDT}};" data-tip="badgeTip" tabindex="0">
     <span>{{BG_TXT}}</span>
   </div>
 
@@ -1183,22 +1202,22 @@
     <path d="M 420,130 H 314 A 14,14 0 0,0 300,144 V 407 A 14,14 0 0,1 286,421 H 240"
           fill="none" stroke="{{TA1_SC}}" stroke-width="{{TA1_SW}}" stroke-linecap="round" marker-end="url(#ag2-{{TA1_MK}})"/>
     <text x="367" y="122" text-anchor="middle" font-size="11" fill="#b0b0b0"
-          font-family="Inter,-apple-system,sans-serif" font-weight="600">{{TA1_LS}} of loss</text>
+          font-family="Inter,-apple-system,sans-serif" font-weight="600" style="pointer-events:auto" data-tip="lossTip">{{TA1_LS}} of loss</text>
     <!-- TA2: TR2 (center-y=324) → Root (center-y=421) -->
     <path d="M 420,324 H 314 A 14,14 0 0,0 300,338 V 407 A 14,14 0 0,1 286,421 H 240"
           fill="none" stroke="{{TA2_SC}}" stroke-width="{{TA2_SW}}" stroke-linecap="round" marker-end="url(#ag2-{{TA2_MK}})"/>
     <text x="367" y="316" text-anchor="middle" font-size="11" fill="#b0b0b0"
-          font-family="Inter,-apple-system,sans-serif" font-weight="600">{{TA2_LS}} of loss</text>
+          font-family="Inter,-apple-system,sans-serif" font-weight="600" style="pointer-events:auto" data-tip="lossTip">{{TA2_LS}} of loss</text>
     <!-- TA3: TR3 (center-y=518) → Root (center-y=421) -->
     <path d="M 420,518 H 314 A 14,14 0 0,1 300,504 V 435 A 14,14 0 0,0 286,421 H 240"
           fill="none" stroke="{{TA3_SC}}" stroke-width="{{TA3_SW}}" stroke-linecap="round" marker-end="url(#ag2-{{TA3_MK}})"/>
     <text x="367" y="510" text-anchor="middle" font-size="11" fill="#b0b0b0"
-          font-family="Inter,-apple-system,sans-serif" font-weight="600">{{TA3_LS}} of loss</text>
+          font-family="Inter,-apple-system,sans-serif" font-weight="600" style="pointer-events:auto" data-tip="lossTip">{{TA3_LS}} of loss</text>
     <!-- TA4: TR4 (center-y=712) → Root (center-y=421) -->
     <path d="M 420,712 H 314 A 14,14 0 0,1 300,698 V 435 A 14,14 0 0,0 286,421 H 240"
           fill="none" stroke="{{TA4_SC}}" stroke-width="{{TA4_SW}}" stroke-linecap="round" marker-end="url(#ag2-{{TA4_MK}})"/>
     <text x="367" y="704" text-anchor="middle" font-size="11" fill="#b0b0b0"
-          font-family="Inter,-apple-system,sans-serif" font-weight="600">{{TA4_LS}} of loss</text>
+          font-family="Inter,-apple-system,sans-serif" font-weight="600" style="pointer-events:auto" data-tip="lossTip">{{TA4_LS}} of loss</text>
   </svg>
 
   </div><!-- /tree-body -->
@@ -1210,7 +1229,7 @@
 <!-- ══════════════════════════════ SEGMENTS ══════════════════════════════ -->
 <div id="panel-segments" class="split-right">
 <div class="sect-head"><h2>Segments</h2>
-  <span class="help-wrap"><button class="help" type="button" aria-label="About segments" aria-describedby="segHelp">?</button><span class="help-tip" id="segHelp" role="tooltip">Each table breaks the period down by one cut: user type, traffic source, device and landing page (top 5 pages, the rest in Other). Step conversion is coloured against the average for the period. The highlighted row is the segment whose revenue changed the most below what its share would predict.</span></span>
+  <span class="help-wrap"><button class="help" type="button" aria-label="About segments" data-tip="help-seg">?</button></span>
 </div>
 <div style="padding:10px 24px 0;">
 {{SEG_EMPTY_STATE}}
@@ -1279,6 +1298,63 @@
 
 </div><!-- /page -->
 
+<!-- Hint contents (see the hint script below) -->
+<template id="help-map">
+  <div class="tip-h">Funnel Metric Map</div>
+  <p>The whole funnel, from traffic to revenue. Each card compares the period with the comparison period (PoP) and the same period last year (YoY). Arrows show which metrics feed which.</p>
+  <div class="tip-s">Colours</div>
+  <ul class="tip-l">
+    <li><span class="sw sw-up">▲ +12.0%</span><span>Grew</span></li>
+    <li><span class="sw sw-down">▼ −8.0%</span><span>Fell</span></li>
+    <li><svg class="sw-svg" width="72" height="20" viewBox="0 0 72 20" aria-hidden="true"><polyline points="0,15 18,11 36,13 54,6 72,4" fill="none" stroke="#0E9C7D" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Weekly trend, coloured like the PoP change</span></li>
+  </ul>
+  <div class="tip-s">Marked card</div>
+  <ul class="tip-l">
+    <li><span class="sw sw-badge">⚠ Need attention</span><span>The biggest drop among cards where every comparison is down</span></li>
+    <li><span class="sw sw-badge">Slowest growth</span><span>When nothing went down: the card that grew the least</span></li>
+  </ul>
+</template>
+<template id="help-tree">
+  <div class="tip-h">Conversion Rate Driver Tree</div>
+  <p>Overall conversion split into four funnel steps, each compared with its target. Targets are each step's best month of the last 12, or your own.</p>
+  <div class="tip-s">Colours</div>
+  <ul class="tip-l">
+    <li><span class="sw-bar good"></span><span>On or above target</span></li>
+    <li><span class="sw-bar warn"></span><span>Below target by up to 15%</span></li>
+    <li><span class="sw-bar bad"></span><span>More than 15% below target</span></li>
+  </ul>
+  <div class="tip-s">Arrows</div>
+  <ul class="tip-l">
+    <li><svg class="sw-svg" width="72" height="20" viewBox="0 0 72 20" aria-hidden="true"><line x1="2" y1="6" x2="70" y2="6" stroke="#FF5C60" stroke-width="1.5" stroke-linecap="round"/><line x1="2" y1="15" x2="70" y2="15" stroke="#FF5C60" stroke-width="4" stroke-linecap="round"/></svg><span>Thicker arrow: the step loses a bigger share of the sessions that never reach purchase</span></li>
+  </ul>
+  <div class="tip-s">Bottleneck</div>
+  <p>The step below target that loses the biggest share of sessions.</p>
+  <div class="tip-s">If →</div>
+  <p>Type a rate for a step to see what overall conversion and revenue would be.</p>
+</template>
+<template id="help-seg">
+  <div class="tip-h">Segments</div>
+  <p>Each table splits the period by one cut. Landing page shows the top 5 pages; the rest are in Other.</p>
+  <div class="tip-s">Conversion colours</div>
+  <ul class="tip-l">
+    <li><span class="sw sw-good">28.4%</span><span>At least 97% of the average (the Total row)</span></li>
+    <li><span class="sw sw-warn">16.7%</span><span>85–97% of the average</span></li>
+    <li><span class="sw sw-bad">7.9%</span><span>Below 85% of the average</span></li>
+  </ul>
+  <div class="tip-s">Highlighted row</div>
+  <ul class="tip-l">
+    <li><span class="sw sw-row">Unassigned</span><span>Revenue changed the furthest behind what the segment's share of total revenue would suggest</span></li>
+  </ul>
+  <div class="tip-s">Rev Δ</div>
+  <p>Revenue change against the comparison period: green up, red down.</p>
+</template>
+<template id="lossTip">
+  <div class="tip-h">Share of loss</div>
+  <p>Of all sessions that never reach purchase, the share that drops off at this step. The thicker the arrow, the bigger the share.</p>
+</template>
+<template id="badgeTip">{{BG_TIP}}</template>
+
+
 <script>
 // Map and Tree are drawn at 900px; scale them down when their half of the page is narrower.
 function fitLeft() {
@@ -1290,10 +1366,46 @@ window.addEventListener('resize', fitLeft);
 fitLeft();
 
 var TITLES = { map: 'Funnel Metric Map', tree: 'Conversion Rate Driver Tree' };
-var HELP = {
-  map: 'The map covers the whole funnel, from traffic to revenue. Each card compares the period with the comparison period (PoP) and the same period last year (YoY); arrows show which metrics feed which. The verdict above names what moved revenue and which card to look at.',
-  tree: 'The Driver Tree splits the overall conversion rate into four funnel steps. Each step shows how far it is from its target and what share of the lost sessions it accounts for. Type a step rate after “If →” to see the effect on overall CR and revenue.'
-};
+
+// Hints: elements with data-tip="<template id>" or data-tip-text="<html>" show a hint card on hover or focus.
+var tipEl = document.createElement('div');
+tipEl.className = 'tip';
+tipEl.hidden = true;
+tipEl.setAttribute('role', 'tooltip');
+document.body.appendChild(tipEl);
+var tipOwner = null, tipShownAt = 0;
+function tipSource(el) {
+  var id = el.getAttribute('data-tip');
+  if (id) { var t = document.getElementById(id); return t ? t.innerHTML : ''; }
+  return el.getAttribute('data-tip-text') || '';
+}
+function showTip(el) {
+  var html = tipSource(el);
+  if (!html.trim()) return;
+  if (tipOwner !== el) tipShownAt = Date.now();
+  tipOwner = el;
+  tipEl.innerHTML = html;
+  tipEl.hidden = false;
+  var r = el.getBoundingClientRect(), w = tipEl.offsetWidth, h = tipEl.offsetHeight;
+  var vw = document.documentElement.clientWidth;
+  var left = Math.min(Math.max(8, r.left + r.width / 2 - w / 2), vw - w - 8);
+  var top = r.bottom + 8 + window.scrollY;
+  if (top + h > document.documentElement.scrollHeight - 8) top = r.top - h - 8 + window.scrollY;
+  tipEl.style.left = left + window.scrollX + 'px';
+  tipEl.style.top = Math.max(8, top) + 'px';
+}
+function hideTip() { tipEl.hidden = true; tipOwner = null; }
+function tipTarget(e) { return e.target && e.target.closest ? e.target.closest('[data-tip],[data-tip-text]') : null; }
+document.addEventListener('mouseover', function (e) { var el = tipTarget(e); if (el && el !== tipOwner) showTip(el); });
+document.addEventListener('mouseout', function (e) { var el = tipTarget(e); if (el && !(e.relatedTarget && el.contains(e.relatedTarget))) hideTip(); });
+document.addEventListener('focusin', function (e) { var el = tipTarget(e); if (el) showTip(el); });
+document.addEventListener('focusout', hideTip);
+// A click opens the hint (touch screens); a second click on an open hint closes it.
+document.addEventListener('click', function (e) {
+  var el = tipTarget(e);
+  if (!el) { hideTip(); return; }
+  if (tipOwner === el && !tipEl.hidden && Date.now() - tipShownAt > 400) hideTip(); else showTip(el);
+});
 function switchTab(name) {
   document.querySelectorAll('.tab-panel').forEach(p => p.style.display = 'none');
   document.querySelectorAll('.vt-btn').forEach(b => b.classList.remove('active'));
@@ -1303,9 +1415,9 @@ function switchTab(name) {
   document.getElementById('tgtLine').style.display = name === 'tree' ? 'block' : 'none';
   document.getElementById('vMap').style.display = name === 'map' ? '' : 'none';
   document.getElementById('vTree').style.display = name === 'tree' ? '' : 'none';
-  document.getElementById('leftHelp').textContent = HELP[name];
+  document.getElementById('leftHelp').setAttribute('data-tip', 'help-' + name);
+  hideTip();
 }
-document.getElementById('leftHelp').textContent = HELP.map;
 
 // Targets are edited in the page around the dashboard.
 function openTargets() {

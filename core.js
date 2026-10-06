@@ -257,6 +257,7 @@
     p[`${prefix}_YY_P`] = yy[1];
     p[`${prefix}_YY_C`] = yy[2];
     p[`${prefix}_YY_A`] = yy[3];
+    p[`_YY_${prefix}`] = yoyAvail && isNum(yoyVal) ? _change(cur, yoyVal) : null;
     return _change(cur, popVal);
   }
 
@@ -455,12 +456,15 @@
       p[`${pfx}_SO`] = "0.05";
     }
 
-    // Problem badge
-    let worst = null, badgeTxt;
+    // Problem badge: candidates are cards where every available comparison (PoP, YoY) is down;
+    // the biggest mean drop wins. If nothing went down, the card that grew the least.
+    let worst = null, worstScore = 0, badgeTxt;
     for (const k of Object.keys(popPcts)) {
-      const v = popPcts[k];
-      if (!(k in BADGE) || v === null || v >= 0) continue;
-      if (worst === null || Math.abs(v) > Math.abs(popPcts[worst])) worst = k;
+      if (!(k in BADGE)) continue;
+      const comps = [popPcts[k], p[`_YY_${k}`]].filter((v) => v !== null && v !== undefined);
+      if (!comps.length || comps.some((v) => v >= 0)) continue;
+      const score = comps.reduce((a, v) => a + Math.abs(v), 0) / comps.length;
+      if (worst === null || score > worstScore) { worst = k; worstScore = score; }
     }
     if (worst !== null) {
       badgeTxt = "⚠ Need attention";
@@ -476,6 +480,7 @@
     p[`${worst}_XC`] = " problem";
     const [lft, top, wdt] = BADGE[worst];
     p.BG_DSP = "block"; p.BG_LFT = lft; p.BG_TOP = top; p.BG_WDT = wdt; p.BG_TXT = badgeTxt;
+    p.BG_TIP = _badgeTip(p, worst, badgeTxt.includes("Need"), popPcts[worst]);
 
     // What-if model
     p.MD_SS = String(Math.trunc(s || 0));
@@ -501,6 +506,28 @@
     p._rev = { cur: rev || 0, pop: revP || 0, yoy: yoy ? _change(rev, revY) : null, tx: cur.transactions || 0 };
     p._purPct = isNum(popPcts.PUR) ? popPcts.PUR : null;
     return p;
+  }
+
+  // Card name for texts; traffic source cards are "<channel> sessions".
+  function _cardLabel(p, k) {
+    if (CARD_LABELS[k]) return CARD_LABELS[k];
+    return /^S\d$/.test(k) && p[`${k}_N`] ? `${p[`${k}_N`]} sessions` : k;
+  }
+
+  // Hover hint for the badge: why this card. No dates, the cards already carry PoP / YoY.
+  function _badgeTip(p, k, needAttention, pop) {
+    const label = _esc(_cardLabel(p, k));
+    const yoy = p[`_YY_${k}`];
+    const pct = (v) => `${(Math.abs(v) * 100).toFixed(1)}%`;
+    if (pop === null || pop === undefined) {
+      return `<div class="tip-h">Why this card is marked</div><p>There is not enough data in the comparison period to compare the cards.</p>`;
+    }
+    if (needAttention) {
+      const drop = `${pct(pop)} PoP` + (yoy !== null && yoy !== undefined ? ` and ${pct(yoy)} YoY` : "");
+      return `<div class="tip-h">Why “Need attention” is here</div><p><b>${label}</b> dropped ${drop}.</p>` +
+        `<p>The mark goes to the card with the biggest drop among cards where every comparison is down.</p>`;
+    }
+    return `<div class="tip-h">Why “Slowest growth” is here</div><p>Nothing on the map went down, so the mark goes to the card that grew the least: <b>${label}</b>, up ${pct(pop)} PoP.</p>`;
   }
 
   // ── Verdicts above the map: rule-based, written for any situation ─────────
@@ -591,7 +618,7 @@
 
     // Watch: the badge on the map
     const k = p._badge, v = p._badgePct;
-    const label = CARD_LABELS[k] || p[`${k}_N`] || k;
+    const label = _esc(_cardLabel(p, k));
     let watch;
     if (v === null) watch = "Nothing to flag yet: there is not enough data in the comparison period.";
     else if (v < 0) watch = `<b>${label}</b> fell the most: down ${hiAbs(v)} to ${p[`${k}_VAL`]}.`;
@@ -816,7 +843,13 @@
     }
     const render = (name, sessions, m, purchases, revenue, rowCls, cls) => {
       const [dtxt, dcls] = _fmtDelta(m.delta);
-      return `<tr class="${rowCls}"><td class="seg-name" title="${_esc(name)}"><span>${_esc(name)}</span></td><td>${_fmtInt(sessions)}</td>` +
+      let tip = `title="${_esc(name)}"`;
+      if (rowCls === "problem-row") {
+        const dl = m.delta || 0;
+        const change = dl < 0 ? `fell by ${_fmtCurrency(-dl)}` : dl > 0 ? `grew by only ${_fmtCurrency(dl)}` : "did not change";
+        tip = `data-tip-text="${_esc(`<div class="tip-h">Why this row is highlighted</div><p>Revenue from <b>${_esc(name)}</b> ${change}, the furthest behind what its share of total revenue would suggest.</p>`)}"`;
+      }
+      return `<tr class="${rowCls}"><td class="seg-name" ${tip}><span>${_esc(name)}</span></td><td>${_fmtInt(sessions)}</td>` +
         `<td class="${cls[0]}">${_fmtPct(m.cr1)}</td><td class="${cls[1]}">${_fmtPct(m.cr2)}</td>` +
         `<td class="${cls[2]}">${_fmtPct(m.cr3)}</td><td class="${cls[3]}">${_fmtPct(m.cr4)}</td>` +
         `<td class="${cls[4]}">${_fmtPct(m.crp)}</td><td>${_fmtInt(purchases)}</td>` +
