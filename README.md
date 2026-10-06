@@ -15,6 +15,7 @@ A GA4 e-commerce funnel dashboard that runs entirely in the browser: the user si
 | `claude_prompt.md` | Analysis brief (JetMetrics methodology) that "Copy for Claude" puts above the dashboard data. Plain text — edit freely |
 | `tilda/funnel-dashboard.html` | The HTML block pasted into the Tilda page; loads these files from jsDelivr |
 | `tilda/privacy.html` | The privacy policy block for jetmetrics.io/privacy (static, pasted into Tilda as is) |
+| `worker/` | Auth service on Cloudflare Workers (`api.jetmetrics.io`): sign-in with Google's code flow, silent token renewal from an encrypted session kept in the browser. See `worker/README.md` |
 
 ## Updating the live page
 

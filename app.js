@@ -174,10 +174,28 @@
   }
 
   // ── Auth ───────────────────────────────────────────────────────────────────
+  // With JM_CONFIG.authServer (api.jetmetrics.io): sign-in popup through our auth service, which returns
+  // an encrypted long-lived session; fresh one-hour tokens come from it without any clicks.
+  // Without it: Google's browser-only token flow (a click every hour) — local development and fallback.
+
+  // On jetmetrics.io the auth service is api.jetmetrics.io; JM_CONFIG.authServer overrides it ("" = browser-only flow).
+  const authServer = () => {
+    const c = window.JM_CONFIG || {};
+    if (typeof c.authServer === "string") return c.authServer;
+    return location.hostname === "jetmetrics.io" ? "https://api.jetmetrics.io" : "";
+  };
 
   function initAuth() {
     if (!window.JM_CONFIG || !JM_CONFIG.clientId || JM_CONFIG.clientId.startsWith("PASTE")) {
       message("Client ID is missing in config.js", "error");
+      return;
+    }
+    if (authServer()) {
+      window.addEventListener("message", (e) => {
+        if (e.origin === new URL(authServer()).origin && e.data && e.data.jm === "auth") onServerAuth(e.data);
+      });
+      $("dataBtn").disabled = false;
+      restoreToken();
       return;
     }
     state.tokenClient = google.accounts.oauth2.initTokenClient({
@@ -191,8 +209,59 @@
   }
 
   function requestToken(prompt = "") {
+    if (authServer()) {
+      const q = new URLSearchParams({ origin: location.origin });
+      const hint = load("jm.email");
+      if (prompt === "select_account") q.set("select", "1");
+      else if (hint) q.set("hint", hint);
+      const w = window.open(`${authServer()}/auth/start?${q}`, "jm-auth", "popup,width=520,height=680");
+      if (!w) message("Your browser blocked the sign-in window. Allow pop-ups for this site and click Connect again.", "error");
+      return;
+    }
     // prompt "" = consent screen only the first time; hint = skip the account chooser.
     state.tokenClient.requestAccessToken({ prompt, hint: prompt ? undefined : load("jm.email") || undefined });
+  }
+
+  // Result from the sign-in popup (auth service)
+  async function onServerAuth(d) {
+    if (!d.ok) {
+      message(d.error === "access_denied" ? "Access to Google Analytics was not granted. Click Connect and allow it." : `Sign-in was not completed (${d.error || "unknown"}).`, "error");
+      return;
+    }
+    if (!String(d.scope || "").includes("analytics.readonly")) {
+      message("Access to Google Analytics was not granted. Click Connect and allow it.", "error");
+      return;
+    }
+    if (d.session) store("jm.session", d.session);
+    await acceptToken(d.access_token, d.expires_in);
+  }
+
+  // A fresh one-hour token from the stored session, without any clicks. False if there's no usable session.
+  async function refreshToken() {
+    const session = load("jm.session");
+    if (!authServer() || !session) return false;
+    try {
+      const res = await fetch(`${authServer()}/auth/refresh`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ session }) });
+      if (res.status === 401) { unstore("jm.session"); return false; }
+      if (!res.ok) return false;
+      const j = await res.json();
+      setToken(j.access_token, j.expires_in);
+      state.expired = false;
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  async function ensureToken() {
+    return tokenValid() || refreshToken();
+  }
+
+  function setToken(token, expiresIn) {
+    state.token = token;
+    state.tokenExp = Date.now() + (Number(expiresIn) - 60) * 1000;
+    // Keep the token for its lifetime (1 hour) so a reload doesn't need a refresh.
+    store("jm.token", JSON.stringify({ token: state.token, exp: state.tokenExp }));
   }
 
   function forgetToken() {
@@ -204,9 +273,10 @@
   function expire() {
     forgetToken();
     state.expired = true;
+    const ended = authServer() ? "Your Google sign-in has ended." : "Your Google session has ended (it lasts an hour).";
     const text = state.lastData
-      ? "Your Google session has ended (it lasts an hour). The numbers below are from your last load."
-      : "Your Google session has ended (it lasts an hour). Reconnect to load the dashboard.";
+      ? `${ended} The numbers below are from your last load.`
+      : `${ended} Reconnect to load the dashboard.`;
     message(text, "warn", [{ label: "Reconnect", onClick: () => requestToken() }]);
     renderAll();
   }
@@ -220,12 +290,13 @@
       message("Access to Google Analytics was not granted. Click Connect and allow it.", "error");
       return;
     }
-    state.token = resp.access_token;
-    state.tokenExp = Date.now() + (Number(resp.expires_in) - 60) * 1000;
+    await acceptToken(resp.access_token, resp.expires_in);
+  }
+
+  async function acceptToken(token, expiresIn) {
+    setToken(token, expiresIn);
     state.expired = false;
     clearMessage();
-    // Keep the token for its lifetime (1 hour) so a reload doesn't ask to connect again.
-    store("jm.token", JSON.stringify({ token: state.token, exp: state.tokenExp }));
     if (!load("jm.email")) rememberEmail();
     renderAll();
     await afterConnect();
@@ -240,11 +311,15 @@
   }
 
   // Properties, then the dashboard for the last used property.
-  async function afterConnect() {
+  async function afterConnect(retried = false) {
     try {
       if (!state.properties.length) await loadProperties();
     } catch (e) {
-      if (e.status === 401) { expire(); return; }
+      if (e.status === 401) {
+        if (!retried && await refreshToken()) return afterConnect(true);
+        expire();
+        return;
+      }
       message(`Could not load your Google Analytics properties: ${e.message}.`, "error");
       return;
     }
@@ -263,7 +338,7 @@
     else openMenu("data", $("dataBtn"));
   }
 
-  function restoreToken() {
+  async function restoreToken() {
     let saved = null;
     try { saved = JSON.parse(load("jm.token") || "null"); } catch (e) { saved = null; }
     if (saved && saved.token && Date.now() < saved.exp) {
@@ -272,6 +347,13 @@
       renderAll();
       afterConnect();
       return;
+    }
+    // The hour is over: get a fresh token from the session, no click needed
+    if (load("jm.session")) {
+      setLoading(true);
+      const ok = await refreshToken();
+      setLoading(false);
+      if (ok) { renderAll(); afterConnect(); return; }
     }
     if (load("jm.email")) expire();
     else renderAll();
@@ -282,8 +364,13 @@
   }
 
   function disconnect() {
-    const t = state.token;
-    if (t && google.accounts.oauth2.revoke) google.accounts.oauth2.revoke(t, () => {});
+    const t = state.token, session = load("jm.session");
+    if (authServer() && session) {
+      fetch(`${authServer()}/auth/revoke`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ session }) }).catch(() => {});
+    } else if (t && window.google && google.accounts && google.accounts.oauth2.revoke) {
+      google.accounts.oauth2.revoke(t, () => {});
+    }
+    unstore("jm.session");
     forgetToken();
     unstore("jm.email");
     state.expired = false;
@@ -572,9 +659,9 @@
 
   // ── Build ──────────────────────────────────────────────────────────────────
 
-  async function build() {
+  async function build(retried = false) {
     if (!state.propertyId) { renderAll(); return; }
-    if (!tokenValid()) { state.pending = build; expire(); return; }
+    if (!(await ensureToken())) { state.pending = build; expire(); return; }
     const prop = property();
     const propertyId = state.propertyId;
     store("jm.property", propertyId);
@@ -607,7 +694,12 @@
       render();
     } catch (e) {
       if (seq !== state.seq) return;
-      if (e.status === 401) { state.pending = build; expire(); return; }
+      if (e.status === 401) {
+        if (!retried && await refreshToken()) { build(true); return; }
+        state.pending = build;
+        expire();
+        return;
+      }
       if (e.status === 403) {
         message(`This Google account has no access to ${prop ? prop.name : "this property"}.`, "error", [{ label: "Choose other data", onClick: () => openMenu("data", $("dataBtn")) }]);
       } else if (e.status === 429) {
@@ -798,6 +890,7 @@
       const doc = $("frame").contentDocument;
       if (!$("frame").hidden && doc && doc.body) $("frame").style.height = `${doc.documentElement.scrollHeight + 20}px`;
     }, 500);
+    if (authServer()) { initAuth(); return; }
     const wait = setInterval(() => {
       if (window.google && google.accounts && google.accounts.oauth2) {
         clearInterval(wait);

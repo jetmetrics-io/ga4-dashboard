@@ -1,0 +1,12 @@
+# JetMetrics auth service on Cloudflare Workers.
+# Deploy: CLOUDFLARE_API_TOKEN=… CLOUDFLARE_ACCOUNT_ID=… npx wrangler@4 deploy
+# Secrets (once): npx wrangler@4 secret put GOOGLE_CLIENT_SECRET | SESSION_KEY | STATE_KEY
+name = "jetmetrics-auth"
+main = "src/index.js"
+compatibility_date = "2025-09-01"
+workers_dev = false
+routes = [{ pattern = "api.jetmetrics.io", custom_domain = true }]
+
+[vars]
+GOOGLE_CLIENT_ID = "944186126368-1ok1odtnuklqv6553jr8vchb98jukvrj.apps.googleusercontent.com"
+ALLOWED_ORIGINS = "https://jetmetrics.io,http://localhost:8080"
