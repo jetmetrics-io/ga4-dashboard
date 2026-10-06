@@ -26,11 +26,14 @@
     return new Date(Date.UTC(d.getUTCFullYear() - 1, d.getUTCMonth(), d.getUTCDate()));
   }
 
-  // start, end: Date (UTC midnight). Returns {current, pop, yoy, label}.
-  function buildPeriods(start, end) {
-    const days = Math.round((end - start) / 86400000) + 1;
-    const popEnd = addDays(start, -1);
-    const popStart = addDays(popEnd, -(days - 1));
+  // start, end: Date (UTC midnight). The comparison period (PoP) is popStart..popEnd when given,
+  // otherwise the same number of days right before. YoY = the same dates a year earlier.
+  function buildPeriods(start, end, popStart, popEnd) {
+    if (!popStart || !popEnd) {
+      const days = Math.round((end - start) / 86400000) + 1;
+      popEnd = addDays(start, -1);
+      popStart = addDays(popEnd, -(days - 1));
+    }
     const fmt = (d) => d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
     return {
       current: { startDate: isoDate(start), endDate: isoDate(end), name: "current" },
@@ -51,8 +54,18 @@
     return { filter: { fieldName: "eventName", inListFilter: { values: FUNNEL_EVENTS } } };
   }
 
+  // Segment filters → one FilterExpression, combined with the request's own filter.
+  // filters: {gaDimensionName: [values]}; empty lists are ignored.
+  function withFilters(base, filters) {
+    const exprs = Object.keys(filters || {}).filter((f) => filters[f] && filters[f].length)
+      .map((fieldName) => ({ filter: { fieldName, inListFilter: { values: filters[fieldName] } } }));
+    if (base) exprs.unshift(base);
+    if (!exprs.length) return undefined;
+    return exprs.length === 1 ? exprs[0] : { andGroup: { expressions: exprs } };
+  }
+
   // Returns [{key, request}] in a fixed order. batchRunReports takes up to 5 per call.
-  function requestPlan(periods) {
+  function requestPlan(periods, filters) {
     const three = [periods.current, periods.pop, periods.yoy];
     const cur = [periods.current];
     const curPop = [periods.current, periods.pop];
@@ -76,6 +89,10 @@
       const d = SEGMENT_DIMS[k];
       plan.push({ key: `segA_${k}`, request: { dateRanges: cur, dimensions: dims("eventName", d), metrics: mets("sessions"), dimensionFilter: funnelFilter() } });
       plan.push({ key: `segB_${k}`, request: { dateRanges: curPop, dimensions: dims(d), metrics: mets("sessions", "totalRevenue", "transactions") } });
+    });
+    plan.forEach((x) => {
+      const f = withFilters(x.request.dimensionFilter, filters);
+      if (f) x.request.dimensionFilter = f;
     });
     return plan;
   }
@@ -775,8 +792,9 @@
   function buildSummary(d, p, targetsInfo) {
     const out = [];
     out.push("## Dashboard data");
-    out.push(`Store: ${d.store || "—"}. Period: ${d.period_label}. Compared with the previous period (${d.period_pop_label})` +
-      (d.yoy_available ? ` and the same period last year (${d.period_yoy_label}).` : ". No data for the same period last year."));
+    out.push(`Store: ${d.store || "—"}. Period: ${d.period_label}. Compared with ${d.period_pop_label} (PoP)` +
+      (d.yoy_available ? ` and the same period last year, ${d.period_yoy_label} (YoY).` : ". No data for the same period last year."));
+    if (d.filters_label) out.push(`Filters applied to every number below: ${d.filters_label}.`);
 
     out.push("\n### Funnel metric map");
     const head = ["Metric", "Current", "Previous period", "Change"].concat(d.yoy_available ? ["Last year", "Change"] : []);
@@ -851,11 +869,10 @@
       html = html.split(`{{${k}}}`).join(String(placeholders[k]));
     });
     html = html.replace(/\{\{[A-Z0-9_]+\}\}/g, "");
-    html = html.replace("To build the map for a different date range, write in chat.", "To build the map for a different date range, use the period selector above.");
     return html;
   }
 
-  const api = { buildPeriods, requestPlan, chunk, reportRows, toGa4Data, processMap, buildVerdicts, autoTargets, processTree, processSegments, buildSummary, fillTemplate };
+  const api = { SEGMENT_DIMS, buildPeriods, requestPlan, chunk, reportRows, toGa4Data, processMap, buildVerdicts, autoTargets, processTree, processSegments, buildSummary, fillTemplate };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else global.JMCore = api;
 })(typeof window !== "undefined" ? window : globalThis);

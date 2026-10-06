@@ -14,29 +14,19 @@
   .split-left, .split-right { min-width: 0; }
   .split-right { border-left: 1px solid #F0F0EE; }
   .fit { width: 900px; margin: 0 auto; }
-  .tab-bar.split { align-items: end; }
-  .tab-bar .tabs { display: flex; gap: 3px; padding-left: 20px; }
-  .tab-bar .tabs-right { padding-left: 24px; }
-  .tab-btn.static { cursor: default; }
-
-  .app-header { background: #F5F5F3; border-bottom: 1px solid #E4E4E2; padding: 11px 20px; display: flex; align-items: center; justify-content: space-between; }
-  .app-brand { display: flex; align-items: center; gap: 8px; }
-  .app-brand-name { font-size: 13px; font-weight: 600; color: #1A1A1A; }
-  .app-brand-sep { color: #CCC; font-size: 13px; }
-  .app-brand-sub { font-size: 13px; color: #999; }
   .tab-panel { display: block; }
 
-  .tab-bar { background: #EEEEEC; padding: 8px 20px 0; border-bottom: 1px solid #E0E0DE; display: flex; gap: 3px; }
-  .tab-bar.split { display: grid; padding: 8px 0 0; }
-  .tab-btn {
-    font-family: Inter, -apple-system, sans-serif;
-    font-size: 13px; font-weight: 400; color: #999;
-    padding: 8px 16px; background: transparent;
-    border: 1px solid transparent; border-bottom: none;
-    border-radius: 6px 6px 0 0; cursor: pointer; margin-bottom: -1px;
-  }
-  .tab-btn.active { background: white; color: #1A1A1A; font-weight: 500; border-color: #E0E0DE; border-bottom: 1px solid white; }
-  .tab-btn:hover:not(.active) { color: #555; }
+  /* Section titles: Map / Tree title with the view switch on the right edge, one Segments title */
+  .sect-head { display: flex; align-items: center; gap: 12px; padding: 18px 20px 4px; min-height: 30px; }
+  .sect-head h2 { font-size: 16px; font-weight: 600; color: #1A1A1A; letter-spacing: -0.1px; white-space: nowrap; }
+  .split-right .sect-head { padding-left: 24px; }
+  .vt { margin-left: auto; display: inline-flex; background: #F6F6F4; border: 1px solid #E3E3E0; border-radius: 8px; padding: 2px; }
+  .vt-btn { font-family: inherit; font-size: 12.5px; color: #4A4A4A; background: transparent; border: 0; border-radius: 6px; padding: 3px 11px; cursor: pointer; }
+  .vt-btn.active { background: white; color: #1A1A1A; font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+  .tgt { padding: 2px 20px 0; font-size: 12.5px; color: #8A8A8A; }
+  .tgt b { color: #4A4A4A; font-weight: 500; }
+  .tgt button { font-family: inherit; font-size: 12.5px; font-weight: 500; color: #0B8169; background: none; border: 0; padding: 0; cursor: pointer; }
+  .tgt button:hover { text-decoration: underline; }
 
   .dashboard {
     position: relative; width: 900px; height: 2000px;
@@ -248,32 +238,22 @@
 <body>
 <div class="page">
 
-<div class="app-header">
-  <div class="app-brand">
-    <span class="app-brand-name">Funnel Dashboard</span>
-    <span class="app-brand-sep">/</span>
-    <span class="app-brand-sub">{{STORE}}</span>
-  </div>
-  <span style="font-size:12px; color:#999;">{{PERIOD}}</span>
-</div>
-
-<div class="tab-bar split">
-  <div class="tabs">
-    <button class="tab-btn active" data-tab="map" onclick="switchTab('map')">Map</button>
-    <button class="tab-btn" data-tab="tree" onclick="switchTab('tree')">Tree</button>
-  </div>
-  <div class="tabs tabs-right"><span class="tab-btn active static">Segments</span></div>
-</div>
-
 <div class="split">
 <div class="split-left">
+<div class="sect-head">
+  <h2 id="leftTitle">Funnel Metric Map</h2>
+  <div class="vt" role="group" aria-label="View">
+    <button class="vt-btn active" data-tab="map" onclick="switchTab('map')">Map</button>
+    <button class="vt-btn" data-tab="tree" onclick="switchTab('tree')">Tree</button>
+  </div>
+</div>
+<div class="tgt" id="tgtLine" style="display:none;">Targets: <b>{{TGT_SRC}}</b> · <button type="button" onclick="openTargets()">Change</button></div>
 <div class="fit">
 
 <!-- ══════════════════════════════ MAP ══════════════════════════════ -->
 <div id="panel-map" class="tab-panel">
-<div style="padding:20px 24px 16px;">
-  <div style="font-size:11px; font-weight:600; color:#BBBBBB; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">Funnel Metric Map</div>
-  <p style="font-size:12px; color:#aaa; line-height:1.55; margin:0 0 14px;">This map covers the full funnel — from traffic to revenue — and compares the current period against the previous period (PoP) and the same period last year (YoY). To build the map for a different date range, write in chat.</p>
+<div style="padding:10px 24px 16px;">
+  <p style="font-size:12px; color:#aaa; line-height:1.55; margin:0 0 14px;">This map covers the full funnel — from traffic to revenue — and compares the current period against the comparison period (PoP) and the same period last year (YoY).</p>
   <div class="tree-verdict">
     <div class="verdict-row">
       <span class="verdict-label">Revenue</span>
@@ -964,9 +944,8 @@
 <!-- ══════════════════════════════ TREE ══════════════════════════════ -->
 <div id="panel-tree" class="tab-panel" style="display:none;">
 <div class="tree-section">
-  <div style="padding:20px 24px 16px;">
-    <div style="font-size:11px; font-weight:600; color:#BBBBBB; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px;">Conversion Rate Driver Tree</div>
-    <p style="font-size:11px; color:#aaa; line-height:1.55; margin:0 0 14px;">Each funnel step shows how much of the overall CR it drives and how far it is from its target. To change a target value — write in chat.</p>
+  <div style="padding:10px 24px 16px;">
+    <p style="font-size:11px; color:#aaa; line-height:1.55; margin:0 0 14px;">Each funnel step shows how much of the overall CR it drives and how far it is from its target.</p>
 {{TREE_EMPTY_STATE}}
     <div class="tree-verdict">
       <div class="verdict-row">
@@ -1224,8 +1203,8 @@
 
 <!-- ══════════════════════════════ SEGMENTS ══════════════════════════════ -->
 <div id="panel-segments" class="split-right">
-<div style="padding:20px 24px 16px;">
-  <div style="font-size:11px; font-weight:600; color:#BBBBBB; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px;">Segments</div>
+<div class="sect-head"><h2>Segments</h2></div>
+<div style="padding:10px 24px 16px;">
   <p style="font-size:11px; color:#aaa; line-height:1.55; margin:0 0 14px;">Breakdown by User Type, Traffic Source, Device, and Landing Page. Spot which segments drive or drag overall conversion.</p>
 {{SEG_EMPTY_STATE}}
 </div>
@@ -1303,11 +1282,19 @@ function fitLeft() {
 window.addEventListener('resize', fitLeft);
 fitLeft();
 
+var TITLES = { map: 'Funnel Metric Map', tree: 'Conversion Rate Driver Tree' };
 function switchTab(name) {
   document.querySelectorAll('.tab-panel').forEach(p => p.style.display = 'none');
-  document.querySelectorAll('.tab-btn[data-tab]').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.vt-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('panel-' + name).style.display = 'block';
-  document.querySelector('[data-tab="' + name + '"]').classList.add('active');
+  document.querySelector('.vt-btn[data-tab="' + name + '"]').classList.add('active');
+  document.getElementById('leftTitle').textContent = TITLES[name];
+  document.getElementById('tgtLine').style.display = name === 'tree' ? 'block' : 'none';
+}
+
+// Targets are edited in the page around the dashboard.
+function openTargets() {
+  if (window.parent && window.parent !== window) window.parent.postMessage({ jm: 'targets' }, '*');
 }
 
 function copyCommand(cmd, btn) {
