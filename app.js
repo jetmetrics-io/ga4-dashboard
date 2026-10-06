@@ -531,6 +531,7 @@
     const mins = state.loadedAt ? Math.round((Date.now() - state.loadedAt) / 60000) : null;
     const ago = mins === null ? "" : mins < 1 ? "updated just now" : `updated ${mins} min ago`;
     return `<button class="jm-it" data-act="reload">Reload data<span class="jm-md">${ago}</span></button>
+      <button class="jm-it" data-act="downloadMd">Download for Claude (.md)</button>
       <button class="jm-it" data-act="download">Download raw data (JSON)</button>`;
   }
 
@@ -648,14 +649,41 @@
 
   // ── Copy for Claude: our analysis brief + this dashboard's data ───────────
 
+  // Our analysis brief + this dashboard's data, as one Markdown text.
+  async function claudeText() {
+    if (!state.prompt) {
+      const base = (window.JM_CONFIG && JM_CONFIG.assetsBase) || "";
+      state.prompt = await (await fetch(`${base}claude_prompt.md${assetVersion()}`)).text();
+    }
+    return `${state.prompt.trim()}\n\n${buildSummary(state.lastData, state.lastPlaceholders, state.lastTargets)}\n`;
+  }
+
+  // The same text as a file, for people who keep or forward the analysis.
+  async function downloadForClaude() {
+    if (!state.lastData || !state.lastPlaceholders) return;
+    try {
+      const text = await claudeText();
+      const [a, b] = periodRange(state.view);
+      const store = (state.lastData.store || "store").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "store";
+      saveFile(text, `jetmetrics-${store}-${iso(a)}_${iso(b)}.md`, "text/markdown");
+    } catch (e) {
+      message(`Could not prepare the file: ${e.message}.`, "error");
+    }
+  }
+
+  function saveFile(text, name, type) {
+    const blob = new Blob([text], { type });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = name;
+    link.click();
+    URL.revokeObjectURL(link.href);
+  }
+
   async function copyForClaude() {
     if (!state.lastData || !state.lastPlaceholders) return;
     try {
-      if (!state.prompt) {
-        const base = (window.JM_CONFIG && JM_CONFIG.assetsBase) || "";
-        state.prompt = await (await fetch(`${base}claude_prompt.md${assetVersion()}`)).text();
-      }
-      const text = `${state.prompt.trim()}\n\n${buildSummary(state.lastData, state.lastPlaceholders, state.lastTargets)}\n`;
+      const text = await claudeText();
       await copyText(text);
       message(`Copied the analysis brief and this dashboard's data (${text.length.toLocaleString("en-US")} characters). Paste them into a new Claude chat.`, "ok", [{ label: "Open Claude →", href: "https://claude.ai/new" }]);
     } catch (e) {
@@ -680,12 +708,7 @@
 
   function downloadData() {
     if (!state.lastData) return;
-    const blob = new Blob([JSON.stringify(state.lastData, null, 2)], { type: "application/json" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `ga4_data_${state.lastPropertyId}.json`;
-    a.click();
-    URL.revokeObjectURL(a.href);
+    saveFile(JSON.stringify(state.lastData, null, 2), `ga4_data_${state.lastPropertyId}.json`, "application/json");
   }
 
   // ── Events ─────────────────────────────────────────────────────────────────
@@ -720,6 +743,7 @@
     if (act === "cancel") { closeMenu(); return; }
     if (act === "reload") { closeMenu(); build(); return; }
     if (act === "download") { closeMenu(); downloadData(); return; }
+    if (act === "downloadMd") { closeMenu(); downloadForClaude(); return; }
     if (act === "otherAccount") { closeMenu(); useAnotherAccount(); return; }
     if (act === "disconnect") { closeMenu(); disconnect(); return; }
     if (act === "clearFilters") { resetFiltersOnly(); build(); return; }
