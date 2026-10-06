@@ -87,9 +87,23 @@ window.JMShell = {
   #jm-app .jm-dark:hover { background: #000; border-color: #000; }
 
   /* Before the first dashboard */
-  #jm-app .jm-empty { padding: 72px 24px 84px; text-align: center; }
-  #jm-app .jm-empty h2 { font-size: 20px; font-weight: 600; margin: 0 0 8px; }
-  #jm-app .jm-empty p { color: var(--jm-muted); margin: 0 auto; max-width: 48ch; line-height: 1.55; }
+  #jm-app .jm-empty { padding: 64px 24px 72px; text-align: center; }
+  #jm-app .jm-empty h2 { font-size: 22px; font-weight: 600; margin: 0 0 8px; letter-spacing: -0.2px; }
+  #jm-app .jm-empty p { color: var(--jm-muted); margin: 0 auto; max-width: 52ch; line-height: 1.55; }
+  /* First visit: what the product is and how it treats data (also the app homepage for Google) */
+  #jm-app .jm-intro { max-width: 860px; margin: 28px auto 0; text-align: left; }
+  #jm-app .jm-feats { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
+  #jm-app .jm-feat { border: 1px solid var(--jm-line); border-radius: 10px; padding: 14px 16px; background: var(--jm-panel); }
+  #jm-app .jm-feat b { display: block; font-weight: 600; margin-bottom: 4px; }
+  #jm-app .jm-feat span { display: block; color: var(--jm-ink2); font-size: 13px; line-height: 1.5; }
+  #jm-app .jm-data-note { margin-top: 16px; padding: 14px 16px; border-radius: 10px; background: var(--jm-sub); color: var(--jm-ink2); font-size: 13px; line-height: 1.55; }
+  #jm-app .jm-data-note b { color: var(--jm-text); }
+  #jm-app .jm-data-note a, #jm-app .jm-footer a { color: var(--jm-accent-ink); }
+  #jm-app .jm-intro-cta { margin-top: 20px; text-align: center; }
+  #jm-app .jm-cta { height: 42px; padding: 0 20px; background: var(--jm-accent); border-color: var(--jm-accent); color: #fff; font-weight: 600; }
+  #jm-app .jm-cta:hover { background: var(--jm-accent-ink); border-color: var(--jm-accent-ink); }
+  /* Footer on every state: product, privacy policy, contact */
+  #jm-app .jm-footer { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 18px; padding: 16px 20px 20px; border-top: 1px solid var(--jm-line2); font-size: 12.5px; color: var(--jm-muted); }
 
   #jm-app .jm-stage { display: flex; justify-content: center; }
   #jm-app iframe { display: block; width: 100%; height: 600px; border: 0; background: var(--jm-panel); transition: opacity .2s; }
@@ -176,8 +190,22 @@ window.JMShell = {
     <div class="jm-progress" id="progress" hidden></div>
   </div>
   <div id="msg" class="jm-msg" hidden><span id="msgText"></span><span class="jm-msg-act" id="msgAct"></span></div>
-  <div id="empty" class="jm-empty"><h2 id="emptyTitle">See your GA4 funnel from traffic to revenue</h2><p id="emptyText">Connect Google Analytics with the green button above and pick your store. Reports go from Google straight to this browser; we don't store your data.</p></div>
+  <div id="empty" class="jm-empty">
+    <h2 id="emptyTitle">See your GA4 funnel from traffic to revenue</h2>
+    <p id="emptyText">Connect Google Analytics with the green button above and pick your store. Reports go from Google straight to this browser; we don't store your data.</p>
+    <div id="intro" class="jm-intro">
+      <div class="jm-feats">
+        <div class="jm-feat"><b>Funnel metric map</b><span>Traffic, product views, cart, checkout, purchases and revenue on one map, compared with the previous period and last year.</span></div>
+        <div class="jm-feat"><b>Conversion driver tree</b><span>Overall conversion split into four funnel steps, each against its target, with what-if modeling.</span></div>
+        <div class="jm-feat"><b>Segments and filters</b><span>The funnel by user type, traffic source, device and landing page. Every cut also works as a filter.</span></div>
+        <div class="jm-feat"><b>Copy for Claude</b><span>The dashboard's numbers with our analysis brief, ready to paste into a Claude chat.</span></div>
+      </div>
+      <div class="jm-data-note"><b>Your data.</b> JetMetrics Funnel Dashboard asks Google for read-only access to your Google Analytics data and for your email address. It uses them only to list your GA4 properties and build this dashboard for the period you choose. Reports go from Google straight to your browser and are shown only to you: JetMetrics doesn't receive, store or share them. Disconnect at any time. <a href="/privacy">Privacy policy</a></div>
+      <div class="jm-intro-cta"><button class="jm-btn jm-cta" data-act="connect">Connect Google Analytics</button></div>
+    </div>
+  </div>
   <div class="jm-stage"><iframe id="frame" title="Dashboard" hidden></iframe></div>
+  <div class="jm-footer"><span>JetMetrics Funnel Dashboard</span><a href="/privacy">Privacy policy</a><a href="mailto:mary@jetmetrics.io">mary@jetmetrics.io</a></div>
   <div id="jmMenu" class="jm-menu" hidden></div>
   `;
   },

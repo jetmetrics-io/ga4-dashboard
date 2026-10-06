@@ -14,6 +14,7 @@ A GA4 e-commerce funnel dashboard that runs entirely in the browser: the user si
 | `template.html` | Dashboard template with `{{PLACEHOLDERS}}`: Map or Tree on the left (title + view switch), Segments on the right |
 | `claude_prompt.md` | Analysis brief (JetMetrics methodology) that "Copy for Claude" puts above the dashboard data. Plain text — edit freely |
 | `tilda/funnel-dashboard.html` | The HTML block pasted into the Tilda page; loads these files from jsDelivr |
+| `tilda/privacy.html` | The privacy policy block for jetmetrics.io/privacy (static, pasted into Tilda as is) |
 
 ## Updating the live page
 

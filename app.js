@@ -477,6 +477,8 @@
     }
     $("emptyTitle").textContent = title;
     $("emptyText").textContent = text;
+    // The product description is for people who haven't connected yet
+    $("intro").hidden = !!(state.token || state.expired);
   }
 
   function renderAll() {
@@ -739,6 +741,7 @@
       return;
     }
     const act = t.dataset.act;
+    if (act === "connect") { closeMenu(); requestToken(); return; }
     if (act === "applyDates") { state.view = { ...DR }; saveView(); closeMenu(); build(); return; }
     if (act === "cancel") { closeMenu(); return; }
     if (act === "reload") { closeMenu(); build(); return; }
