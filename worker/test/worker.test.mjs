@@ -17,10 +17,21 @@ const PAGE = "https://jetmetrics.io";
 // Google stub: records calls, answers like the token and revoke endpoints
 let calls = [];
 let tokenAnswer = () => ({ status: 200, body: { access_token: "at-1", expires_in: 3599, refresh_token: "rt-1", scope: "analytics.readonly email" } });
-globalThis.fetch = async (url, init) => {
-  const params = Object.fromEntries(new URLSearchParams(init.body));
-  calls.push({ url: String(url), params });
-  if (String(url).includes("/revoke")) return new Response("{}", { status: 200 });
+// Gumroad stub: emails that have the product
+let buyers = ["buyer@example.com"];
+let gumroadDown = false;
+let googleEmail = "buyer@example.com";
+globalThis.fetch = async (url, init = {}) => {
+  url = String(url);
+  const params = Object.fromEntries(new URLSearchParams(init.body || new URL(url).search));
+  calls.push({ url, params });
+  if (url.includes("/userinfo")) return new Response(JSON.stringify({ email: googleEmail, email_verified: true }), { status: 200 });
+  if (url.includes("api.gumroad.com")) {
+    if (gumroadDown) return new Response("busy", { status: 503 });
+    const sales = buyers.includes(params.email) ? [{ email: params.email, product_id: params.product_id, refunded: false, chargedback: false }] : [];
+    return new Response(JSON.stringify({ success: true, sales }), { status: 200 });
+  }
+  if (url.includes("/revoke")) return new Response("{}", { status: 200 });
   const a = tokenAnswer(params);
   return new Response(JSON.stringify(a.body), { status: a.status });
 };
@@ -129,4 +140,66 @@ test("CORS preflight is answered only for allowed pages", async () => {
   assert.equal(res.status, 204);
   res = await call("/funnel-dashboard/auth/refresh", { method: "OPTIONS", headers: { Origin: "https://evil.example" } });
   assert.equal(res.status, 403);
+});
+
+// ── Access check by email on Gumroad ─────────────────────────────────────────
+
+const gated = { ...env, ACCESS_CHECK: "on", GUMROAD_PRODUCTS: "prod-free", GUMROAD_TOKEN: "gt", ACCESS_URL: "https://store.example/l/free" };
+const callG = (path, init = {}) => worker.fetch(new Request(API + path, init), gated);
+const postG = (path, body) => callG(path, { method: "POST", headers: { "Content-Type": "application/json", Origin: PAGE }, body: JSON.stringify(body) });
+async function stateG() {
+  const res = await callG(`/funnel-dashboard/auth/start?origin=${encodeURIComponent(PAGE)}`);
+  return new URL(res.headers.get("Location")).searchParams.get("state");
+}
+
+test("access check off: no Gumroad calls", async () => {
+  calls = []; tokenAnswer = () => ({ status: 200, body: { access_token: "at-1", expires_in: 3599, refresh_token: "rt-1", scope: "analytics.readonly email" } });
+  const state = (await startState()).searchParams.get("state");
+  const msg = messageFrom(await (await call(`/funnel-dashboard/auth/callback?code=c&state=${encodeURIComponent(state)}`)).text());
+  assert.equal(msg.data.ok, true);
+  assert.ok(!calls.some((c) => c.url.includes("gumroad") || c.url.includes("userinfo")));
+});
+
+test("access check on: a buyer gets tokens, the session remembers the check", async () => {
+  googleEmail = "Buyer@Example.com"; buyers = ["buyer@example.com"]; calls = [];
+  const msg = messageFrom(await (await callG(`/funnel-dashboard/auth/callback?code=c&state=${encodeURIComponent(await stateG())}`)).text());
+  assert.equal(msg.data.ok, true);
+  const g = calls.find((c) => c.url.includes("gumroad"));
+  assert.deepEqual([g.params.email, g.params.product_id], ["buyer@example.com", "prod-free"]);
+  // a checked session is not checked again on refresh
+  calls = [];
+  const res = await postG("/funnel-dashboard/auth/refresh", { session: msg.data.session });
+  assert.equal(res.status, 200);
+  assert.ok(!calls.some((c) => c.url.includes("gumroad")));
+});
+
+test("access check on: no purchase → no tokens, the grant is revoked, the page learns where to get access", async () => {
+  googleEmail = "stranger@example.com"; calls = [];
+  const msg = messageFrom(await (await callG(`/funnel-dashboard/auth/callback?code=c&state=${encodeURIComponent(await stateG())}`)).text());
+  assert.deepEqual([msg.data.ok, msg.data.error, msg.data.email, msg.data.access_url], [false, "no_access", "stranger@example.com", "https://store.example/l/free"]);
+  assert.equal(msg.data.access_token, undefined);
+  assert.equal(msg.data.session, undefined);
+  assert.equal(calls.find((c) => c.url.includes("/revoke")).params.token, "rt-1");
+});
+
+test("access check on: Gumroad down → let in, check again on refresh", async () => {
+  googleEmail = "stranger@example.com"; gumroadDown = true;
+  const msg = messageFrom(await (await callG(`/funnel-dashboard/auth/callback?code=c&state=${encodeURIComponent(await stateG())}`)).text());
+  assert.equal(msg.data.ok, true);
+  gumroadDown = false;
+  tokenAnswer = () => ({ status: 200, body: { access_token: "at-2", expires_in: 3599 } });
+  const res = await postG("/funnel-dashboard/auth/refresh", { session: msg.data.session });
+  assert.equal(res.status, 403);
+  assert.equal((await res.json()).error, "no_access");
+});
+
+test("access check turned on later: an old session is checked on refresh and gets a checked session", async () => {
+  googleEmail = "buyer@example.com"; buyers = ["buyer@example.com"];
+  const old = await sealSession(env, "rt-old");
+  tokenAnswer = () => ({ status: 200, body: { access_token: "at-3", expires_in: 3599 } });
+  const res = await postG("/funnel-dashboard/auth/refresh", { session: old });
+  assert.equal(res.status, 200);
+  const j = await res.json();
+  assert.equal(j.access_token, "at-3");
+  assert.equal(await openSession(gated, j.session), "rt-old");
 });

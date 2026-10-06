@@ -11,8 +11,13 @@
 // browser as an opaque "session". Nothing is stored here, and Google Analytics data never passes
 // through this service — the browser calls Google directly with the access token.
 //
-// Config (wrangler.toml [vars]): GOOGLE_CLIENT_ID, ALLOWED_ORIGINS (comma-separated page origins).
-// Secrets (wrangler secret put): GOOGLE_CLIENT_SECRET, SESSION_KEY (base64, 32 bytes), STATE_KEY (base64, 32 bytes).
+// Access check (ACCESS_CHECK = "on"): the Google account's email must have one of GUMROAD_PRODUCTS
+// on our Gumroad store; otherwise no tokens, and the page shows where to get access (ACCESS_URL).
+//
+// Config (wrangler.toml [vars]): GOOGLE_CLIENT_ID, ALLOWED_ORIGINS (comma-separated page origins),
+// ACCESS_CHECK, GUMROAD_PRODUCTS (comma-separated product IDs), ACCESS_URL.
+// Secrets (wrangler secret put): GOOGLE_CLIENT_SECRET, SESSION_KEY (base64, 32 bytes), STATE_KEY (base64, 32 bytes),
+// GUMROAD_TOKEN (Gumroad API access token; needed only with the access check on).
 
 const SCOPES = [
   "https://www.googleapis.com/auth/analytics.readonly",
@@ -21,6 +26,8 @@ const SCOPES = [
 const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
 const GOOGLE_REVOKE_URL = "https://oauth2.googleapis.com/revoke";
+const GOOGLE_USERINFO_URL = "https://openidconnect.googleapis.com/v1/userinfo";
+const GUMROAD_SALES_URL = "https://api.gumroad.com/v2/sales";
 const STATE_MAX_AGE_MS = 10 * 60 * 1000;
 const AUTH = "/funnel-dashboard/auth";
 
@@ -53,10 +60,10 @@ async function hmacKey(env) {
   return crypto.subtle.importKey("raw", fromB64(env.STATE_KEY), { name: "HMAC", hash: "SHA-256" }, false, ["sign", "verify"]);
 }
 
-// Session = AES-GCM(refresh token), opaque to the browser.
-export async function sealSession(env, refreshToken) {
+// Session = AES-GCM(refresh token + when access was confirmed), opaque to the browser.
+export async function sealSession(env, refreshToken, accessAt = 0) {
   const iv = crypto.getRandomValues(new Uint8Array(12));
-  const data = enc.encode(JSON.stringify({ v: 1, rt: refreshToken, iat: Date.now() }));
+  const data = enc.encode(JSON.stringify({ v: 1, rt: refreshToken, iat: Date.now(), ac: accessAt }));
   const ct = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, await aesKey(env), data));
   const out = new Uint8Array(iv.length + ct.length);
   out.set(iv);
@@ -64,16 +71,21 @@ export async function sealSession(env, refreshToken) {
   return b64url(out);
 }
 
-export async function openSession(env, session) {
+async function readSession(env, session) {
   try {
     const raw = fromB64url(String(session || ""));
     if (raw.length < 13) return null;
     const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv: raw.slice(0, 12) }, await aesKey(env), raw.slice(12));
     const obj = JSON.parse(dec.decode(pt));
-    return obj && obj.v === 1 && obj.rt ? obj.rt : null;
+    return obj && obj.v === 1 && obj.rt ? obj : null;
   } catch (e) {
     return null;
   }
+}
+
+export async function openSession(env, session) {
+  const obj = await readSession(env, session);
+  return obj ? obj.rt : null;
 }
 
 // State = payload.signature; carries the page origin through Google's redirect.
@@ -125,13 +137,53 @@ function resultPage(origin, message) {
   const target = JSON.stringify(origin || "");
   const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>JetMetrics Funnel Dashboard</title>
 <meta name="viewport" content="width=device-width, initial-scale=1"><style>body{font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#1A1A1A;margin:0;display:grid;place-items:center;min-height:100vh;text-align:center;padding:24px}</style></head>
-<body><p id="m">${message.ok ? "Connected. You can close this window." : "Sign-in didn't finish. You can close this window and try again."}</p>
+<body><p id="m">${message.ok ? "Connected. You can close this window." : message.error === "no_access" ? "This Google account doesn't have access to the dashboard yet. You can close this window." : "Sign-in didn't finish. You can close this window and try again."}</p>
 <script>
 var data = ${data}, target = ${target};
 if (window.opener && target) { window.opener.postMessage(data, target); window.close(); }
 </script></body></html>`;
   return new Response(html, { status: 200, headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" } });
 }
+
+// ── Access check ─────────────────────────────────────────────────────────────
+
+const accessOn = (env) => env.ACCESS_CHECK === "on";
+
+// The Google account's verified email, lower-case; null if Google didn't say.
+async function googleEmail(env, accessToken) {
+  try {
+    const res = await fetch(env.GOOGLE_USERINFO_URL || GOOGLE_USERINFO_URL, { headers: { Authorization: `Bearer ${accessToken}` } });
+    const j = await res.json();
+    return res.ok && j.email && j.email_verified !== false ? String(j.email).toLowerCase() : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+// true: the email has one of the products (not refunded); false: it hasn't; null: Gumroad didn't answer.
+async function hasAccess(env, email) {
+  const products = String(env.GUMROAD_PRODUCTS || "").split(",").map((x) => x.trim()).filter(Boolean);
+  try {
+    for (const product of products) {
+      const q = new URLSearchParams({ email, product_id: product });
+      const res = await fetch(`${env.GUMROAD_SALES_URL || GUMROAD_SALES_URL}?${q}`, { headers: { Authorization: `Bearer ${env.GUMROAD_TOKEN}` } });
+      const j = await res.json();
+      if (!res.ok || !j.success) return null;
+      if ((j.sales || []).some((x) => String(x.email || "").toLowerCase() === email && !x.refunded && !x.chargedback)) return true;
+    }
+    return false;
+  } catch (e) {
+    return null;
+  }
+}
+
+// { email, access } — access null when it couldn't be checked (let the person in, check again on refresh).
+async function checkAccess(env, accessToken) {
+  const email = await googleEmail(env, accessToken);
+  return { email, access: email ? await hasAccess(env, email) : null };
+}
+
+const noAccess = (env, email) => ({ error: "no_access", email: email || "", access_url: env.ACCESS_URL || "" });
 
 // ── Routes ───────────────────────────────────────────────────────────────────
 
@@ -168,19 +220,30 @@ async function callback(request, env) {
     redirect_uri: `${url.origin}${AUTH}/callback`, grant_type: "authorization_code",
   });
   if (!r.ok || !r.body.access_token) return resultPage(st.o, { ok: false, error: r.body.error || "exchange_failed" });
+  let accessAt = 0;
+  if (accessOn(env)) {
+    const { email, access } = await checkAccess(env, r.body.access_token);
+    if (access === false) {
+      // No access: hand out nothing and leave no grant behind
+      await google(env, env.GOOGLE_REVOKE_URL || GOOGLE_REVOKE_URL, { token: r.body.refresh_token || r.body.access_token });
+      return resultPage(st.o, { ok: false, ...noAccess(env, email) });
+    }
+    if (access) accessAt = Date.now();
+  }
   return resultPage(st.o, {
     ok: true,
     access_token: r.body.access_token,
     expires_in: r.body.expires_in,
     scope: r.body.scope,
-    session: r.body.refresh_token ? await sealSession(env, r.body.refresh_token) : null,
+    session: r.body.refresh_token ? await sealSession(env, r.body.refresh_token, accessAt) : null,
   });
 }
 
 async function refresh(request, env, headers) {
   const body = await request.json().catch(() => ({}));
-  const rt = await openSession(env, body.session);
-  if (!rt) return json({ error: "invalid_session" }, 401, headers);
+  const sess = await readSession(env, body.session);
+  if (!sess) return json({ error: "invalid_session" }, 401, headers);
+  const rt = sess.rt;
   const r = await google(env, env.GOOGLE_TOKEN_URL || GOOGLE_TOKEN_URL, {
     refresh_token: rt, client_id: env.GOOGLE_CLIENT_ID, client_secret: env.GOOGLE_CLIENT_SECRET, grant_type: "refresh_token",
   });
@@ -189,7 +252,14 @@ async function refresh(request, env, headers) {
     const status = r.body.error === "invalid_grant" ? 401 : 502;
     return json({ error: r.body.error || "refresh_failed" }, status, headers);
   }
-  return json({ access_token: r.body.access_token, expires_in: r.body.expires_in, scope: r.body.scope }, 200, headers);
+  const out = { access_token: r.body.access_token, expires_in: r.body.expires_in, scope: r.body.scope };
+  // Sessions without confirmed access (made while the check was off, or Gumroad didn't answer) are checked now
+  if (accessOn(env) && !sess.ac) {
+    const { email, access } = await checkAccess(env, r.body.access_token);
+    if (access === false) return json(noAccess(env, email), 403, headers);
+    if (access) out.session = await sealSession(env, rt, Date.now());
+  }
+  return json(out, 200, headers);
 }
 
 async function revoke(request, env, headers) {

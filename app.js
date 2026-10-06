@@ -17,7 +17,7 @@
   const LP_OPTIONS = 200;
 
   const state = {
-    token: null, tokenExp: 0, tokenClient: null, expired: false,
+    token: null, tokenExp: 0, tokenClient: null, expired: false, noAccess: null,
     properties: [], propertyId: null,
     template: null, lastData: null, loading: false, loadedAt: 0, seq: 0, conn: 0,
     view: null, filters: {}, options: {},
@@ -241,6 +241,7 @@
 
   // Result from the sign-in popup (auth service)
   async function onServerAuth(d) {
+    if (d.error === "no_access") { showNoAccess(d); return; }
     if (!d.ok) {
       message(d.error === "access_denied" ? "Access to Google Analytics was not granted. Click Connect and allow it." : `Sign-in was not completed (${d.error || "unknown"}).`, "error");
       return;
@@ -261,9 +262,15 @@
     try {
       const res = await fetch(`${authServer()}/auth/refresh`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ session }) });
       if (res.status === 401) { unstore("session"); return false; }
+      if (res.status === 403) {
+        const j = await res.json().catch(() => ({}));
+        if (j.error === "no_access" && conn === state.conn) showNoAccess(j);
+        return false;
+      }
       if (!res.ok) return false;
       const j = await res.json();
       if (conn !== state.conn) return false; // disconnected meanwhile
+      if (j.session) store("session", j.session);
       setToken(j.access_token, j.expires_in);
       state.expired = false;
       return true;
@@ -289,7 +296,26 @@
     unstore("token");
   }
 
+  // The Google account's email has no access on our Gumroad store: nothing to load, show where to get access.
+  function showNoAccess(d) {
+    state.conn++;
+    state.seq++;
+    state.pending = null;
+    setLoading(false);
+    unstore("session");
+    forgetToken();
+    state.noAccess = { email: d.email || "", url: d.access_url || "" };
+    state.expired = false;
+    state.properties = [];
+    state.lastData = null;
+    $("frame").hidden = true;
+    $("frame").removeAttribute("srcdoc");
+    clearMessage();
+    renderAll();
+  }
+
   function expire() {
+    if (state.noAccess) { renderAll(); return; }
     forgetToken();
     state.expired = true;
     const ended = authServer() ? "Your Google sign-in has ended." : "Your Google session has ended (it lasts an hour).";
@@ -315,6 +341,7 @@
   async function acceptToken(token, expiresIn) {
     setToken(token, expiresIn);
     state.expired = false;
+    state.noAccess = null;
     clearMessage();
     if (!load("email")) rememberEmail();
     renderAll();
@@ -401,6 +428,7 @@
     forgetToken();
     unstore("email");
     state.expired = false;
+    state.noAccess = null;
     state.properties = [];
     state.lastData = null;
     $("frame").hidden = true;
@@ -583,7 +611,11 @@
     if (!show) return;
     let title = "See your GA4 funnel from traffic to revenue";
     let text = "Connect Google Analytics with the green button above and pick your store. Reports go from Google straight to this browser; we don't store your data.";
-    if (state.expired) {
+    const na = state.noAccess;
+    if (na) {
+      title = "Get free access to see your dashboard";
+      text = `We couldn't find JetMetrics Funnel Dashboard for ${na.email || "this Google account"}. Get it free on our Gumroad store with this email address, then connect again. Signed up with another email? Connect the Google account that uses it.`;
+    } else if (state.expired) {
       title = "Reconnect to see your dashboard";
       text = "Your store and period are remembered. Reports go from Google straight to this browser; we don't store your data.";
     } else if (state.token) {
@@ -593,7 +625,9 @@
     $("emptyTitle").textContent = title;
     $("emptyText").textContent = text;
     // The product description is for people who haven't connected yet
-    $("intro").hidden = !!(state.token || state.expired);
+    $("intro").hidden = !!(state.token || state.expired || na);
+    $("noAccess").hidden = !na;
+    if (na) $("getAccess").href = na.url || "#";
   }
 
   function renderAll() {

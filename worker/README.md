@@ -9,12 +9,15 @@ Cloudflare Worker `funnel-dashboard-api` at `https://api.jetmetrics.io/funnel-da
 | `POST /funnel-dashboard/auth/refresh {session}` | Returns a fresh one-hour access token |
 | `POST /funnel-dashboard/auth/revoke {session}` | Revokes the Google grant (Disconnect) |
 
+**Access check** (`ACCESS_CHECK = "on"`). After Google sign-in the service reads the account's verified email and asks Gumroad (`GET /v2/sales?email=…&product_id=…`) whether it has one of `GUMROAD_PRODUCTS`, not refunded. No → no tokens, the Google grant is revoked, and the page gets `{error: "no_access", email, access_url}` to show where to get access. Gumroad not answering → the person is let in and checked again on the next refresh. A confirmed check is sealed into the session, so it isn't repeated every hour. Off while Google reviews the app (reviewers have no purchase).
+
 **Stateless.** The Google refresh token is encrypted (AES-GCM, `SESSION_KEY`) and kept by the browser as an opaque session. Nothing is stored here, and Google Analytics data never passes through the service: the browser calls Google directly with the access token.
 
 ## Config
 
 - `wrangler.toml` → `[vars]`: `GOOGLE_CLIENT_ID`, `ALLOWED_ORIGINS` (page origins allowed to sign in).
-- Secrets: `GOOGLE_CLIENT_SECRET` (the web OAuth client's secret), `SESSION_KEY` and `STATE_KEY` (random 32 bytes, base64). Changing `SESSION_KEY` signs everyone out.
+- `[vars]` for the access check: `ACCESS_CHECK` (`on`/`off`), `GUMROAD_PRODUCTS` (product IDs that give access, comma-separated), `ACCESS_URL` (where to get access).
+- Secrets: `GOOGLE_CLIENT_SECRET` (the web OAuth client's secret), `SESSION_KEY` and `STATE_KEY` (random 32 bytes, base64), `GUMROAD_TOKEN` (Gumroad API access token, needed with the access check on). Changing `SESSION_KEY` signs everyone out.
 - The worker is bound to the whole `api.jetmetrics.io` host (custom domain). When a second product needs the host, switch to routes per prefix (`api.jetmetrics.io/funnel-dashboard/*`); the URLs stay the same.
 - Google Cloud: the OAuth client needs `https://api.jetmetrics.io/funnel-dashboard/auth/callback` under "Authorized redirect URIs".
 

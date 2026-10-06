@@ -10,3 +10,7 @@ routes = [{ pattern = "api.jetmetrics.io", custom_domain = true }]
 [vars]
 GOOGLE_CLIENT_ID = "944186126368-1ok1odtnuklqv6553jr8vchb98jukvrj.apps.googleusercontent.com"
 ALLOWED_ORIGINS = "https://jetmetrics.io,http://localhost:8080"
+# Access check by the Google account's email on our Gumroad store: "on" / "off" (off while Google reviews the app)
+ACCESS_CHECK = "off"
+GUMROAD_PRODUCTS = "99Uk34VKPzfUKcKX_so2IA=="
+ACCESS_URL = "https://datmark.gumroad.com/l/funnel-dashboard-free"

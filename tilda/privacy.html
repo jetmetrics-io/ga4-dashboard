@@ -15,13 +15,13 @@
 
   <p>This policy explains what JetMetrics Funnel Dashboard (the dashboard at <a href="https://jetmetrics.io/funnel-dashboard">jetmetrics.io/funnel-dashboard</a>) accesses, how it uses that information and where it is kept. JetMetrics (“we”) runs the dashboard. This policy covers the dashboard only; the rest of jetmetrics.io is covered by the <a href="/privacy-policy">website privacy policy</a>. Questions: <a href="mailto:mary@jetmetrics.io">mary@jetmetrics.io</a>.</p>
 
-  <div class="jm-p-box">In short: the dashboard reads your Google Analytics data only to show it to you. Reports go from Google straight to your browser. Our sign-in service only helps keep you signed in and stores nothing. We don't sell or share your Google data.</div>
+  <div class="jm-p-box">In short: the dashboard reads your Google Analytics data only to show it to you. Reports go from Google straight to your browser. Our sign-in service keeps you signed in and checks that your email address has access to the dashboard; it stores nothing. We don't sell your Google data or share it beyond that access check.</div>
 
   <h2>What the dashboard accesses</h2>
   <p>When you click “Connect Google Analytics”, Google asks you to allow:</p>
   <ul>
     <li><b>See and download your Google Analytics data</b> (read-only). The dashboard uses it to list the GA4 properties your Google account can open and to request reports for the property, period and filters you choose.</li>
-    <li><b>See your primary Google Account email address.</b> The dashboard uses it only to pre-select your account the next time you connect, so you don't have to pick it again.</li>
+    <li><b>See your primary Google Account email address.</b> Our sign-in service uses it to check that this address has access to the dashboard (see “Access check”), and the dashboard uses it to pre-select your account the next time you connect.</li>
   </ul>
   <p>The dashboard can't change anything in your Google Analytics account.</p>
 
@@ -41,16 +41,20 @@
     <li>your choices: the selected property, the period and comparison, and the Driver Tree targets for each property.</li>
   </ul>
   <p>Reports stay in the page's memory while the page is open and are gone when you close it.</p>
-  <p>Our sign-in service at api.jetmetrics.io exchanges Google's one-time sign-in code for tokens and renews the access token from your sign-in session. It returns the tokens to your browser and keeps nothing: no tokens, no email address and no Analytics data. Google Analytics reports never pass through it.</p>
+  <p>Our sign-in service at api.jetmetrics.io exchanges Google's one-time sign-in code for tokens and renews the access token from your sign-in session. It also checks your access with Gumroad (see “Access check”). It returns the tokens to your browser and keeps nothing: no tokens, no email address and no Analytics data. Google Analytics reports never pass through it.</p>
+
+  <h2>Access check</h2>
+  <p>You get access to the dashboard on our store at Gumroad, with your email address. When you connect, our sign-in service sends the email address of your Google account to Gumroad to look up whether it has access. Gumroad already has this address if you signed up with it there. Only the address is sent; your Google Analytics data never is. If the address isn't found, the dashboard shows where to get access, and you can connect another Google account instead.</p>
 
   <h2>Sharing</h2>
-  <p>We don't share, sell or transfer Google user data to anyone.</p>
+  <p>We don't sell Google user data and don't share or transfer it to anyone, except for sending your email address to Gumroad for the access check above.</p>
   <p>JetMetrics Funnel Dashboard's use and transfer to any other app of information received from Google APIs will adhere to the <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>, including the Limited Use requirements.</p>
 
   <h2>Services that deliver the page</h2>
   <ul>
     <li><b>Google</b>: sign-in and the Google Analytics APIs. Analytics requests go directly from your browser to Google.</li>
     <li><b>Cloudflare Workers</b> runs our sign-in service (see “Where it is stored”).</li>
+    <li><b>Gumroad</b> runs our store and receives your email address for the access check (see “Access check”). Its privacy policy: <a href="https://gumroad.com/privacy">gumroad.com/privacy</a>.</li>
     <li><b>Tilda</b> hosts the page, <b>Cloudflare</b> delivers the jetmetrics.io website, and <b>jsDelivr</b> serves the dashboard's code. Like any website, they receive standard request information such as your IP address and browser type.</li>
     <li>Visits to jetmetrics.io pages, including this one and the dashboard page, are measured with Google Analytics (pages viewed, device, approximate location). This is about visits to our website and doesn't include your Google Analytics data.</li>
   </ul>
