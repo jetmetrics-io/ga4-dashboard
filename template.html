@@ -23,6 +23,15 @@
   .vt { margin-left: auto; display: inline-flex; background: #F6F6F4; border: 1px solid #E3E3E0; border-radius: 8px; padding: 2px; }
   .vt-btn { font-family: inherit; font-size: 12.5px; color: #4A4A4A; background: transparent; border: 0; border-radius: 6px; padding: 3px 11px; cursor: pointer; }
   .vt-btn.active { background: white; color: #1A1A1A; font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+  .help-wrap { position: relative; display: inline-flex; }
+  .split-right .help-wrap { margin-left: auto; }
+  .help { width: 24px; height: 24px; border-radius: 50%; border: 1px solid #E3E3E0; background: white; color: #8A8A8A; font: 600 12px Inter, -apple-system, sans-serif; cursor: help; }
+  .help:hover, .help:focus-visible { color: #1A1A1A; border-color: #CFCFCB; outline: none; }
+  .help-tip { display: none; position: absolute; right: 0; top: calc(100% + 8px); z-index: 40; width: 300px; padding: 10px 12px; background: #1A1A1A; color: #F2F2F0; border-radius: 8px; font-size: 12.5px; line-height: 1.5; box-shadow: 0 6px 20px rgba(0,0,0,0.18); }
+  .help-wrap:hover .help-tip, .help-wrap:focus-within .help-tip { display: block; }
+  .verdicts { padding: 10px 20px 16px; }
+  .verdicts .tree-verdict { margin-bottom: 0; }
+  .verdicts .empty-state-bar { margin-bottom: 0; }
   .tgt { padding: 2px 20px 0; font-size: 12.5px; color: #8A8A8A; }
   .tgt b { color: #4A4A4A; font-weight: 500; }
   .tgt button { font-family: inherit; font-size: 12.5px; font-weight: 500; color: #0B8169; background: none; border: 0; padding: 0; cursor: pointer; }
@@ -158,17 +167,14 @@
   .seg-table .mc-bad  { color: #FF5C60; font-weight: 500; }
 
   .seg-insight {
-    margin-top: 14px; padding-top: 12px;
-    border-top: 1px solid #f0f0f0;
-    font-size: 11px; color: #888; line-height: 1.55;
+    margin: 0 0 14px; padding: 10px 14px;
+    background: #F7FAF9; border: 1px solid #D8EDE7; border-radius: 8px;
+    font-size: 12.5px; color: #555; line-height: 1.55;
   }
-  .seg-insight-label {
-    font-size: 9px; font-weight: 600; text-transform: uppercase;
-    letter-spacing: 0.8px; color: #FF5C60;
-    display: block; margin-bottom: 5px;
-  }
-  .seg-insight .hi-bad  { color: #FF5C60; font-weight: 600; }
-  .seg-insight .hi-good { color: #0E9C7D; font-weight: 600; }
+  .seg-insight:empty { display: none; }
+  .seg-insight b { color: #1A1A1A; font-weight: 600; }
+  .seg-insight .hi-bad  { color: #D94F4F; font-weight: 500; }
+  .seg-insight .hi-good { color: #0E9C7D; font-weight: 500; }
 
   .empty-state-bar {
     display: flex; align-items: center; justify-content: space-between;
@@ -189,8 +195,9 @@
     display: flex; flex-direction: column; gap: 5px;
   }
   .verdict-row { display: flex; align-items: baseline; gap: 8px; }
-  .verdict-label { font-size: 12px; font-weight: 400; color: #AAA; min-width: 110px; flex-shrink: 0; }
-  .verdict-text { font-size: 12px; color: #555; line-height: 1.6; }
+  .verdict-label { font-size: 12.5px; font-weight: 400; color: #999; min-width: 120px; flex-shrink: 0; }
+  .verdict-text { font-size: 13px; color: #555; line-height: 1.6; }
+  .verdict-text b { color: #1A1A1A; font-weight: 600; }
   .verdict-text .hi-bad  { color: #D94F4F; font-weight: 500; }
   .verdict-text .hi-good { color: #0E9C7D; font-weight: 500; }
 
@@ -246,15 +253,11 @@
     <button class="vt-btn active" data-tab="map" onclick="switchTab('map')">Map</button>
     <button class="vt-btn" data-tab="tree" onclick="switchTab('tree')">Tree</button>
   </div>
+  <span class="help-wrap"><button class="help" type="button" aria-label="About this view" aria-describedby="leftHelp">?</button><span class="help-tip" id="leftHelp" role="tooltip"></span></span>
 </div>
 <div class="tgt" id="tgtLine" style="display:none;">Targets: <b>{{TGT_SRC}}</b> · <button type="button" onclick="openTargets()">Change</button></div>
-<div class="fit">
-
-<!-- ══════════════════════════════ MAP ══════════════════════════════ -->
-<div id="panel-map" class="tab-panel">
-<div style="padding:10px 24px 16px;">
-  <p style="font-size:12px; color:#aaa; line-height:1.55; margin:0 0 14px;">This map covers the full funnel — from traffic to revenue — and compares the current period against the comparison period (PoP) and the same period last year (YoY).</p>
-  <div class="tree-verdict">
+<div class="verdicts">
+  <div class="tree-verdict" id="vMap">
     <div class="verdict-row">
       <span class="verdict-label">Revenue</span>
       <span class="verdict-text">{{MV_RV}}</span>
@@ -268,7 +271,25 @@
       <span class="verdict-text">{{MV_WC}}</span>
     </div>
   </div>
+  <div id="vTree" style="display:none;">
+{{TREE_EMPTY_STATE}}
+    <div class="tree-verdict" style="display:{{TV_DSP}};">
+      <div class="verdict-row">
+        <span class="verdict-label">Overall CR</span>
+        <span class="verdict-text">{{TV_OV}}</span>
+      </div>
+      <div class="verdict-row">
+        <span class="verdict-label">Bottleneck</span>
+        <span class="verdict-text">{{TV_BT}}</span>
+      </div>
+      {{TV_HL}}
+    </div>
+  </div>
 </div>
+<div class="fit">
+
+<!-- ══════════════════════════════ MAP ══════════════════════════════ -->
+<div id="panel-map" class="tab-panel">
 <div style="height:1px; background:#F0F0EE;"></div>
 <div class="dashboard">
 
@@ -944,21 +965,6 @@
 <!-- ══════════════════════════════ TREE ══════════════════════════════ -->
 <div id="panel-tree" class="tab-panel" style="display:none;">
 <div class="tree-section">
-  <div style="padding:10px 24px 16px;">
-    <p style="font-size:11px; color:#aaa; line-height:1.55; margin:0 0 14px;">Each funnel step shows how much of the overall CR it drives and how far it is from its target.</p>
-{{TREE_EMPTY_STATE}}
-    <div class="tree-verdict">
-      <div class="verdict-row">
-        <span class="verdict-label">Overall CR</span>
-        <span class="verdict-text">{{TV_OV}}</span>
-      </div>
-      <div class="verdict-row">
-        <span class="verdict-label">Bottleneck</span>
-        <span class="verdict-text">{{TV_BT}}</span>
-      </div>
-      {{TV_HL}}
-    </div>
-  </div>
   <div class="tree-body">
 
   <!-- ROOT card TR0 -->
@@ -1203,15 +1209,17 @@
 
 <!-- ══════════════════════════════ SEGMENTS ══════════════════════════════ -->
 <div id="panel-segments" class="split-right">
-<div class="sect-head"><h2>Segments</h2></div>
-<div style="padding:10px 24px 16px;">
-  <p style="font-size:11px; color:#aaa; line-height:1.55; margin:0 0 14px;">Breakdown by User Type, Traffic Source, Device, and Landing Page. Spot which segments drive or drag overall conversion.</p>
+<div class="sect-head"><h2>Segments</h2>
+  <span class="help-wrap"><button class="help" type="button" aria-label="About segments" aria-describedby="segHelp">?</button><span class="help-tip" id="segHelp" role="tooltip">Each table breaks the period down by one cut: user type, traffic source, device and landing page (top 5 pages, the rest in Other). Step conversion is coloured against the average for the period. The highlighted row is the segment whose revenue changed the most below what its share would predict.</span></span>
+</div>
+<div style="padding:10px 24px 0;">
 {{SEG_EMPTY_STATE}}
 </div>
 <div class="right-panel">
 
   <div class="panel-section">
     <div class="panel-title">User Type</div>
+    <div class="seg-insight">{{SEG_UT_I}}</div>
     <table class="seg-table">
       <thead><tr>
         <th class="th-seg">Segment</th><th>Sessions</th>
@@ -1221,11 +1229,11 @@
       </tr></thead>
       <tbody>{{SEG_UT_R}}</tbody>
     </table>
-    <div class="seg-insight">{{SEG_UT_I}}</div>
   </div>
 
   <div class="panel-section">
     <div class="panel-title">Traffic Source</div>
+    <div class="seg-insight">{{SEG_SC_I}}</div>
     <table class="seg-table">
       <thead><tr>
         <th class="th-seg">Segment</th><th>Sessions</th>
@@ -1235,11 +1243,11 @@
       </tr></thead>
       <tbody>{{SEG_SC_R}}</tbody>
     </table>
-    <div class="seg-insight">{{SEG_SC_I}}</div>
   </div>
 
   <div class="panel-section">
     <div class="panel-title">Device</div>
+    <div class="seg-insight">{{SEG_DV_I}}</div>
     <table class="seg-table">
       <thead><tr>
         <th class="th-seg">Segment</th><th>Sessions</th>
@@ -1249,11 +1257,11 @@
       </tr></thead>
       <tbody>{{SEG_DV_R}}</tbody>
     </table>
-    <div class="seg-insight">{{SEG_DV_I}}</div>
   </div>
 
   <div class="panel-section">
     <div class="panel-title">Landing Page</div>
+    <div class="seg-insight">{{SEG_LP_I}}</div>
     <table class="seg-table">
       <thead><tr>
         <th class="th-seg">Segment</th><th>Sessions</th>
@@ -1263,7 +1271,6 @@
       </tr></thead>
       <tbody>{{SEG_LP_R}}</tbody>
     </table>
-    <div class="seg-insight">{{SEG_LP_I}}</div>
   </div>
 
 </div><!-- /right-panel -->
@@ -1283,6 +1290,10 @@ window.addEventListener('resize', fitLeft);
 fitLeft();
 
 var TITLES = { map: 'Funnel Metric Map', tree: 'Conversion Rate Driver Tree' };
+var HELP = {
+  map: 'The map covers the whole funnel, from traffic to revenue. Each card compares the period with the comparison period (PoP) and the same period last year (YoY); arrows show which metrics feed which. The verdict above names what moved revenue and which card to look at.',
+  tree: 'The Driver Tree splits the overall conversion rate into four funnel steps. Each step shows how far it is from its target and what share of the lost sessions it accounts for. Type a step rate after “If →” to see the effect on overall CR and revenue.'
+};
 function switchTab(name) {
   document.querySelectorAll('.tab-panel').forEach(p => p.style.display = 'none');
   document.querySelectorAll('.vt-btn').forEach(b => b.classList.remove('active'));
@@ -1290,7 +1301,11 @@ function switchTab(name) {
   document.querySelector('.vt-btn[data-tab="' + name + '"]').classList.add('active');
   document.getElementById('leftTitle').textContent = TITLES[name];
   document.getElementById('tgtLine').style.display = name === 'tree' ? 'block' : 'none';
+  document.getElementById('vMap').style.display = name === 'map' ? '' : 'none';
+  document.getElementById('vTree').style.display = name === 'tree' ? '' : 'none';
+  document.getElementById('leftHelp').textContent = HELP[name];
 }
+document.getElementById('leftHelp').textContent = HELP.map;
 
 // Targets are edited in the page around the dashboard.
 function openTargets() {

@@ -297,11 +297,12 @@
     S5: ["598px", "1785px", "130px"], S6: ["740px", "1785px", "130px"],
   };
 
+  // Same names as on the map cards, so the reader can find the card a verdict talks about.
   const CARD_LABELS = {
-    REV: "Revenue", AOV: "Average Order Value", ARP: "Revenue per Purchaser",
+    REV: "Total Revenue", AOV: "Average Order Value", ARP: "ARPPC",
     CON: "CR Sessions → Purchase", CHP: "CR Checkout → Purchase", PUR: "Purchases",
-    FST: "First-time purchasers", RPT: "Repeat purchasers",
-    ACK: "CR Add to Cart → Checkout", CHK: "Sessions with Checkout", ATS: "Add-to-carts per Session",
+    FST: "First time purchasers", RPT: "Repeat purchasers",
+    ACK: "CR Add to Cart → Checkout", CHK: "Sessions with Checkout", ATS: "ATCs per Session",
     PAC: "CR Product Views → Add to Cart", ATC: "Sessions with Add to Cart",
     SPV: "CR Sessions → Product Views", PVC: "Sessions with Product Views", PVS: "Product Views per Session",
     SES: "Sessions", SPU: "Sessions per User",
@@ -482,30 +483,80 @@
 
     // Exposed for verdicts (not template placeholders)
     p._badge = worst;
+    p._badgePct = isNum(popPcts[worst]) ? popPcts[worst] : null;
     p._pop = { rev: _change(rev, revP), ses: _change(s, sP), cr: _change(crSp, crSpP), aov: _change(aov, aovP) };
+    p._rev = { cur: rev || 0, pop: revP || 0, yoy: yoy ? _change(rev, revY) : null, tx: cur.transactions || 0 };
+    p._purPct = isNum(popPcts.PUR) ? popPcts.PUR : null;
     return p;
   }
 
-  // ── Deterministic verdicts (prototype; the AI layer comes later) ───────────
+  // ── Verdicts above the map: rule-based, written for any situation ─────────
+  // Revenue = Sessions × Conversion rate × Average order value: say what moved revenue and what to check.
+
+  const FLAT = 0.01; // changes under 1% count as "held steady"
 
   function signedPct(v) {
     if (v === null) return "n/a";
     return `${v >= 0 ? "+" : ""}${(v * 100).toFixed(1)}%`;
   }
 
+  // A change in green (up) or red (down); tiny changes stay uncoloured.
+  function hiPct(v) {
+    if (v === null || v === undefined) return "n/a";
+    const t = signedPct(v);
+    return Math.abs(v) < FLAT ? t : `<span class="${v > 0 ? "hi-good" : "hi-bad"}">${t}</span>`;
+  }
+
+  const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1);
+  const joinAnd = (xs) => (xs.length < 2 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}`);
+
   function buildVerdicts(p) {
-    const pp = p._pop;
-    const revenue = `<b>${p.REV_VAL}</b>, ${p.REV_PP_V} vs previous period` + (p.REV_YY_V && p.REV_YY_V !== "n/a" ? `, ${p.REV_YY_V} vs last year` : "");
-    // Revenue ≈ Sessions × CR × AOV: name the factor that moved the most.
-    const factors = [["Sessions", pp.ses], ["Conversion rate", pp.cr], ["Average order value", pp.aov]].filter(([, v]) => v !== null);
-    let driving = "Not enough data to compare with the previous period.";
-    if (factors.length) {
-      const main = factors.reduce((a, b) => (Math.abs(b[1]) > Math.abs(a[1]) ? b : a));
-      driving = `${main[0]} moved the most (${signedPct(main[1])}). ` + factors.map(([n, v]) => `${n} ${signedPct(v)}`).join(", ") + ".";
+    const pp = p._pop, r = p._rev;
+
+    let revenue;
+    if (!r.cur && !r.pop) {
+      revenue = r.tx
+        ? "No revenue recorded in GA4, although there are purchases: revenue may not be sent with purchase events."
+        : "No revenue recorded in GA4 for this period.";
+    } else if (pp.rev === null) {
+      revenue = `<b>${p.REV_VAL}</b> · no revenue in the comparison period`;
+    } else {
+      revenue = `<b>${p.REV_VAL}</b> · ${hiPct(pp.rev)} PoP` + (r.yoy !== null ? ` · ${hiPct(r.yoy)} YoY` : "");
     }
-    const k = p._badge;
+
+    // Without revenue in GA4 the same logic explains purchases (Purchases = Sessions × Conversion rate).
+    const noRevenue = !r.cur && !r.pop;
+    const what = noRevenue ? "purchases" : "revenue";
+    const names = { ses: "sessions", cr: "conversion rate", aov: "average order value" };
+    const f = (noRevenue ? ["ses", "cr"] : ["ses", "cr", "aov"]).filter((k) => pp[k] !== null).map((k) => [names[k], pp[k]]);
+    let driving;
+    if (!f.length) {
+      driving = "Not enough data in the comparison period to explain the change.";
+    } else {
+      const up = f.filter(([, v]) => v >= FLAT).sort((a, b) => b[1] - a[1]);
+      const down = f.filter(([, v]) => v <= -FLAT).sort((a, b) => a[1] - b[1]);
+      const flat = f.filter(([, v]) => Math.abs(v) < FLAT).map(([n]) => n);
+      const list = (xs, first) => joinAnd(xs.map(([n, v], i) => `<b>${first && i === 0 ? cap(n) : n}</b> ${hiPct(v)}`));
+      // Lead with the side that moved revenue the way it went.
+      const lead = noRevenue ? p._purPct : pp.rev;
+      const leadDown = lead !== null && lead !== undefined && lead < 0;
+      const [A, B] = leadDown ? [down, up] : [up, down];
+      const verb = (xs) => (xs === up ? "pushed" : "pulled"), dir = (xs) => (xs === up ? "up" : "down");
+      let t = "";
+      if (A.length) t = `${list(A, true)} ${verb(A)} ${what} ${dir(A)}`;
+      if (B.length) t += A.length ? `, while ${list(B, false)} ${verb(B)} ${noRevenue ? "them" : "it"} ${dir(B)}` : `${list(B, true)} ${verb(B)} ${what} ${dir(B)}`;
+      if (!t) t = `${cap(joinAnd(flat))} held steady (each within ±1%)`;
+      else if (flat.length) t += `. ${cap(joinAnd(flat))} held steady`;
+      driving = `${t}.`;
+    }
+
+    const k = p._badge, v = p._badgePct;
     const label = CARD_LABELS[k] || p[`${k}_N`] || k;
-    const watch = `${label}: ${p[`${k}_VAL`]} (${p[`${k}_PP_V`]} vs previous period).`;
+    let watch;
+    if (v === null) watch = "Nothing to flag: not enough data in the comparison period.";
+    else if (v < 0) watch = `<b>${label}</b> fell the most: ${p[`${k}_VAL`]}, ${hiPct(v)} PoP.`;
+    else watch = `Nothing fell. <b>${label}</b> grew the slowest: ${p[`${k}_VAL`]}, ${hiPct(v)} PoP.`;
+
     return { MV_RV: revenue, MV_DR: driving, MV_WC: watch };
   }
 
@@ -608,9 +659,11 @@
     p.TV_OV = `${hi(zones.TR0, p.TR0_VAL)} vs target ${p.TR0_TG} (${p.TR0_GP}).`;
     const steps = ["TR1", "TR2", "TR3", "TR4"];
     const rank = { bad: 0, warn: 1, good: 2 };
-    const worst = steps.filter((k) => zones[k] !== "good").sort((a, b) => rank[zones[a]] - rank[zones[b]] || shares[b] - shares[a])[0];
+    // Bottleneck = the step below its target that loses the biggest share of sessions.
+    const worst = steps.filter((k) => zones[k] !== "good").sort((a, b) => shares[b] - shares[a] || rank[zones[a]] - rank[zones[b]])[0];
     p.TV_BT = worst
-      ? `${TREE_LABELS[worst]}: ${hi("bad", p[`${worst}_VAL`])} vs target ${p[`${worst}_TG`]}. ${shares[worst]}% of the sessions lost before purchase drop off at this step.`
+      ? `${TREE_LABELS[worst]}: ${hi("bad", p[`${worst}_VAL`])} vs target ${p[`${worst}_TG`]}.` +
+        (shares[worst] > 0 ? ` ${shares[worst]}% of the sessions lost before purchase drop off at this step.` : "")
       : "All steps meet their targets.";
     const actual = { TR1: crCp, TR2: crAc, TR3: crPa, TR4: crSv };
     const target = { TR1: t.chk_pur, TR2: t.atc_chk, TR3: t.pv_atc, TR4: t.s_pv };
@@ -747,12 +800,12 @@
     const pr = rows.length >= 2 && overshoot < 0 ? rows.find((r) => r.name === problem) : null;
     if (pr) {
       const [dtxt] = _fmtDelta(_rowMetrics(pr).delta);
-      parts.push(`Revenue change in <span class="hi-bad">${_esc(pr.name)}</span> (${dtxt} vs previous period) is the furthest below what its share would predict.`);
+      parts.push(`Revenue change in <span class="hi-bad">${_esc(pr.name)}</span> (${dtxt} PoP) is the furthest below what its share would predict.`);
     }
     if (key === "user_type" && rows.some((r) => r.name === "(not set)")) {
       parts.push("“(not set)” is a technical GA4 value: the visitor type could not be determined.");
     }
-    return parts.length ? `<span class="seg-insight-label">Insight</span> ${parts.join(" ")}` : "";
+    return parts.join(" ");
   }
 
   function processSegments(d) {

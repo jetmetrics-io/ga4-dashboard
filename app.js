@@ -627,6 +627,7 @@
       Object.assign(p, processTree(ga4, info.targets));
     } else {
       p.TREE_EMPTY_STATE = '<div class="empty-state-bar"><span>Set funnel targets to build the Driver Tree: click “Change” next to Targets above.</span></div>';
+      p.TV_DSP = "none";
     }
     Object.assign(p, processSegments(ga4));
     const frame = $("frame");
