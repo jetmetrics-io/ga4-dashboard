@@ -619,7 +619,7 @@
     const ga4 = state.lastData;
     if (!ga4 || !state.template) return;
     const p = processMap(ga4);
-    Object.assign(p, buildVerdicts(p));
+    Object.assign(p, buildVerdicts(p, ga4));
     const info = currentTargets(ga4, state.lastPropertyId);
     fillTargetsPanel(info);
     p.TGT_SRC = targetsLabel(info);

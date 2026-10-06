@@ -26,6 +26,17 @@
     return new Date(Date.UTC(d.getUTCFullYear() - 1, d.getUTCMonth(), d.getUTCDate()));
   }
 
+  const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+  // "Aug 1 – 31, 2026", "Sep 28 – Oct 4, 2026", "Oct 5, 2026"
+  function shortRange(a, b) {
+    const [ay, am, ad, by, bm, bd] = [a.getUTCFullYear(), a.getUTCMonth(), a.getUTCDate(), b.getUTCFullYear(), b.getUTCMonth(), b.getUTCDate()];
+    if (a.getTime() === b.getTime()) return `${MONTHS[am]} ${ad}, ${ay}`;
+    if (ay === by && am === bm) return `${MONTHS[am]} ${ad} – ${bd}, ${by}`;
+    if (ay === by) return `${MONTHS[am]} ${ad} – ${MONTHS[bm]} ${bd}, ${by}`;
+    return `${MONTHS[am]} ${ad}, ${ay} – ${MONTHS[bm]} ${bd}, ${by}`;
+  }
+
   // start, end: Date (UTC midnight). The comparison period (PoP) is popStart..popEnd when given,
   // otherwise the same number of days right before. YoY = the same dates a year earlier.
   function buildPeriods(start, end, popStart, popEnd) {
@@ -41,6 +52,7 @@
       yoy: { startDate: isoDate(minusYear(start)), endDate: isoDate(minusYear(end)), name: "yoy" },
       label: `${fmt(start)} – ${fmt(end)}, ${end.getUTCFullYear()}`,
       popLabel: `${fmt(popStart)} – ${fmt(popEnd)}, ${popEnd.getUTCFullYear()}`,
+      popShort: shortRange(popStart, popEnd),
       yoyLabel: `${fmt(minusYear(start))} – ${fmt(minusYear(end))}, ${minusYear(end).getUTCFullYear()}`,
     };
   }
@@ -166,6 +178,7 @@
     return {
       period_label: periods.label,
       period_pop_label: periods.popLabel,
+      period_pop_short: periods.popShort,
       period_yoy_label: periods.yoyLabel,
       store,
       yoy_available: yoyAvailable,
@@ -500,32 +513,43 @@
     return `${v >= 0 ? "+" : ""}${(v * 100).toFixed(1)}%`;
   }
 
-  // A change in green (up) or red (down); tiny changes stay uncoloured.
+  // A signed change in green (up) or red (down); tiny changes stay uncoloured.
   function hiPct(v) {
     if (v === null || v === undefined) return "n/a";
     const t = signedPct(v);
     return Math.abs(v) < FLAT ? t : `<span class="${v > 0 ? "hi-good" : "hi-bad"}">${t}</span>`;
   }
 
+  // The size of a change without its sign, coloured by direction ("down 93.4%").
+  function hiAbs(v) {
+    const t = `${(Math.abs(v) * 100).toFixed(1)}%`;
+    return Math.abs(v) < FLAT ? t : `<span class="${v > 0 ? "hi-good" : "hi-bad"}">${t}</span>`;
+  }
+
   const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1);
   const joinAnd = (xs) => (xs.length < 2 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}`);
 
-  function buildVerdicts(p) {
+  // d (optional) gives the comparison period's dates for the sentences.
+  function buildVerdicts(p, d) {
     const pp = p._pop, r = p._rev;
+    const popTxt = (d && d.period_pop_short) || "the comparison period";
+    const noRevenue = !r.cur && !r.pop;
 
+    // Revenue
     let revenue;
-    if (!r.cur && !r.pop) {
+    if (noRevenue) {
       revenue = r.tx
-        ? "No revenue recorded in GA4, although there are purchases: revenue may not be sent with purchase events."
+        ? "No revenue recorded in GA4, although there are purchases. Revenue may not be sent with purchase events."
         : "No revenue recorded in GA4 for this period.";
     } else if (pp.rev === null) {
-      revenue = `<b>${p.REV_VAL}</b> · no revenue in the comparison period`;
+      revenue = `<b>${p.REV_VAL}</b>. There was no revenue in ${popTxt}.`;
     } else {
-      revenue = `<b>${p.REV_VAL}</b> · ${hiPct(pp.rev)} PoP` + (r.yoy !== null ? ` · ${hiPct(r.yoy)} YoY` : "");
+      const move = (v) => (Math.abs(v) < FLAT ? "almost unchanged" : `${v > 0 ? "up" : "down"} ${hiAbs(v)}`);
+      revenue = `<b>${p.REV_VAL}</b>, ${move(pp.rev)} from ${popTxt}` + (r.yoy !== null ? `, and ${move(r.yoy)} from a year earlier` : "") + ".";
     }
 
-    // Without revenue in GA4 the same logic explains purchases (Purchases = Sessions × Conversion rate).
-    const noRevenue = !r.cur && !r.pop;
+    // What's driving it: Revenue = Sessions × Conversion rate × Average order value
+    // (without revenue in GA4: Purchases = Sessions × Conversion rate).
     const what = noRevenue ? "purchases" : "revenue";
     const names = { ses: "sessions", cr: "conversion rate", aov: "average order value" };
     const f = (noRevenue ? ["ses", "cr"] : ["ses", "cr", "aov"]).filter((k) => pp[k] !== null).map((k) => [names[k], pp[k]]);
@@ -536,26 +560,43 @@
       const up = f.filter(([, v]) => v >= FLAT).sort((a, b) => b[1] - a[1]);
       const down = f.filter(([, v]) => v <= -FLAT).sort((a, b) => a[1] - b[1]);
       const flat = f.filter(([, v]) => Math.abs(v) < FLAT).map(([n]) => n);
-      const list = (xs, first) => joinAnd(xs.map(([n, v], i) => `<b>${first && i === 0 ? cap(n) : n}</b> ${hiPct(v)}`));
-      // Lead with the side that moved revenue the way it went.
+      // "sessions rose 11.0%" or "sessions (+59.6%) and conversion rate (+39.6%) rose"
+      const moves = (xs, first) => {
+        const nm = (n, i) => `<b>${first && i === 0 ? cap(n) : n}</b>`;
+        const verb = xs[0][1] > 0 ? "rose" : "dropped";
+        return xs.length === 1 ? `${nm(xs[0][0], 0)} ${verb} ${hiAbs(xs[0][1])}` : `${joinAnd(xs.map(([n, v], i) => `${nm(n, i)} (${hiPct(v)})`))} ${verb}`;
+      };
       const lead = noRevenue ? p._purPct : pp.rev;
-      const leadDown = lead !== null && lead !== undefined && lead < 0;
-      const [A, B] = leadDown ? [down, up] : [up, down];
-      const verb = (xs) => (xs === up ? "pushed" : "pulled"), dir = (xs) => (xs === up ? "up" : "down");
-      let t = "";
-      if (A.length) t = `${list(A, true)} ${verb(A)} ${what} ${dir(A)}`;
-      if (B.length) t += A.length ? `, while ${list(B, false)} ${verb(B)} ${noRevenue ? "them" : "it"} ${dir(B)}` : `${list(B, true)} ${verb(B)} ${what} ${dir(B)}`;
-      if (!t) t = `${cap(joinAnd(flat))} held steady (each within ±1%)`;
-      else if (flat.length) t += `. ${cap(joinAnd(flat))} held steady`;
-      driving = `${t}.`;
+      const sentences = [];
+      if (lead === null || lead === undefined) {
+        const parts = [up, down].filter((xs) => xs.length);
+        if (parts.length) sentences.push(parts.map((xs, i) => moves(xs, i === 0)).join(", while ") + ".");
+      } else if (Math.abs(lead) < FLAT) {
+        if (up.length && down.length) sentences.push(`${cap(what)} held steady: ${moves(up, false)}, while ${moves(down, false)}.`);
+        else if (up.length || down.length) sentences.push(`${cap(what)} held steady, although ${moves(up.length ? up : down, false)}.`);
+      } else {
+        const grew = lead > 0;
+        const [main, counter] = grew ? [up, down] : [down, up];
+        if (main.length) sentences.push(`${cap(what)} ${grew ? "grew" : "fell"} because ${moves(main, false)}.`);
+        else if (counter.length) {
+          // All three factors known and none explains it: what is left is orders per purchasing session.
+          const rest = f.length === 3 ? ` The change comes from the number of orders per purchasing session.` : "";
+          sentences.push(`${cap(what)} ${grew ? "grew" : "fell"} even though ${moves(counter, false)}.${rest}`);
+        }
+        if (main.length && counter.length) sentences.push(`${moves(counter, true)}, but not enough to ${grew ? "hold it back" : "make up for it"}.`);
+      }
+      if (flat.length) sentences.push(`${cap(joinAnd(flat))} held steady.`);
+      driving = sentences.join(" ");
     }
 
+    // Watch: the badge on the map
     const k = p._badge, v = p._badgePct;
     const label = CARD_LABELS[k] || p[`${k}_N`] || k;
     let watch;
-    if (v === null) watch = "Nothing to flag: not enough data in the comparison period.";
-    else if (v < 0) watch = `<b>${label}</b> fell the most: ${p[`${k}_VAL`]}, ${hiPct(v)} PoP.`;
-    else watch = `Nothing fell. <b>${label}</b> grew the slowest: ${p[`${k}_VAL`]}, ${hiPct(v)} PoP.`;
+    if (v === null) watch = "Nothing to flag yet: there is not enough data in the comparison period.";
+    else if (v < 0) watch = `<b>${label}</b> fell the most: down ${hiAbs(v)} to ${p[`${k}_VAL`]}.`;
+    else if (v < FLAT) watch = `Nothing fell. <b>${label}</b> grew the slowest and is almost unchanged at ${p[`${k}_VAL`]}.`;
+    else watch = `Nothing fell. <b>${label}</b> grew the slowest: up ${hiAbs(v)} to ${p[`${k}_VAL`]}.`;
 
     return { MV_RV: revenue, MV_DR: driving, MV_WC: watch };
   }
@@ -656,21 +697,22 @@
 
     // Deterministic verdicts (prototype)
     const hi = (zone, text) => `<span class="${zone === "good" ? "hi-good" : "hi-bad"}">${text}</span>`;
-    p.TV_OV = `${hi(zones.TR0, p.TR0_VAL)} vs target ${p.TR0_TG} (${p.TR0_GP}).`;
+    const gap = isNum(crSp) && t.overall ? (crSp - t.overall) * 100 : 0;
+    p.TV_OV = `${hi(zones.TR0, p.TR0_VAL)}, ${Math.abs(gap).toFixed(1)} pp ${gap >= 0 ? "above" : "below"} the ${p.TR0_TG} target.`;
     const steps = ["TR1", "TR2", "TR3", "TR4"];
     const rank = { bad: 0, warn: 1, good: 2 };
     // Bottleneck = the step below its target that loses the biggest share of sessions.
     const worst = steps.filter((k) => zones[k] !== "good").sort((a, b) => shares[b] - shares[a] || rank[zones[a]] - rank[zones[b]])[0];
     p.TV_BT = worst
-      ? `${TREE_LABELS[worst]}: ${hi("bad", p[`${worst}_VAL`])} vs target ${p[`${worst}_TG`]}.` +
-        (shares[worst] > 0 ? ` ${shares[worst]}% of the sessions lost before purchase drop off at this step.` : "")
+      ? `${TREE_LABELS[worst]} converts ${hi("bad", p[`${worst}_VAL`])} against a ${p[`${worst}_TG`]} target.` +
+        (shares[worst] > 0 ? ` ${shares[worst]}% of the sessions lost before purchase drop off here.` : "")
       : "All steps meet their targets.";
     const actual = { TR1: crCp, TR2: crAc, TR3: crPa, TR4: crSv };
     const target = { TR1: t.chk_pur, TR2: t.atc_chk, TR3: t.pv_atc, TR4: t.s_pv };
     const ahead = steps.filter((k) => isNum(actual[k]) && target[k] && actual[k] - target[k] >= 0.0005);
     const bestStep = ahead.sort((a, b) => actual[b] / target[b] - actual[a] / target[a])[0];
     p.TV_HL = bestStep
-      ? `<div class="verdict-row"><span class="verdict-label">Highlight</span><span class="verdict-text">${TREE_LABELS[bestStep]} beats its target: ${hi("good", p[`${bestStep}_VAL`])} vs ${p[`${bestStep}_TG`]}.</span></div>`
+      ? `<div class="verdict-row"><span class="verdict-label">Highlight</span><span class="verdict-text">${TREE_LABELS[bestStep]} beats its target: ${hi("good", p[`${bestStep}_VAL`])} against ${p[`${bestStep}_TG`]}.</span></div>`
       : "";
     p.TREE_EMPTY_STATE = "";
     return p;
@@ -795,12 +837,13 @@
     const parts = [];
     if (sized.length >= 2) {
       const best = sized.reduce((a, b) => ((_rowMetrics(b).crp || 0) > (_rowMetrics(a).crp || 0) ? b : a));
-      parts.push(`<b>${_esc(best.name)}</b> converts best: <span class="hi-good">${_fmtPct(_rowMetrics(best).crp)}</span> vs ${_fmtPct(t.crp)} on average.`);
+      parts.push(`<b>${_esc(best.name)}</b> converts best: <span class="hi-good">${_fmtPct(_rowMetrics(best).crp)}</span> against an average of ${_fmtPct(t.crp)}.`);
     }
     const pr = rows.length >= 2 && overshoot < 0 ? rows.find((r) => r.name === problem) : null;
     if (pr) {
-      const [dtxt] = _fmtDelta(_rowMetrics(pr).delta);
-      parts.push(`Revenue change in <span class="hi-bad">${_esc(pr.name)}</span> (${dtxt} PoP) is the furthest below what its share would predict.`);
+      const delta = _rowMetrics(pr).delta || 0;
+      const change = delta < 0 ? `fell by ${_fmtCurrency(-delta)}` : delta > 0 ? `grew by only ${_fmtCurrency(delta)}` : "did not change";
+      parts.push(`Revenue from <span class="hi-bad">${_esc(pr.name)}</span> ${change}, the furthest behind what its share of revenue would suggest.`);
     }
     if (key === "user_type" && rows.some((r) => r.name === "(not set)")) {
       parts.push("“(not set)” is a technical GA4 value: the visitor type could not be determined.");
