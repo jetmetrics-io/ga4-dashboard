@@ -494,7 +494,7 @@
     // What-if model
     p.MD_SS = String(Math.trunc(s || 0));
     p.MD_CR = (crSp || 0).toFixed(4);
-    p.MD_RV = String(Math.trunc(Math.round(rev || 0)));
+    p.MD_RV = (rev || 0).toFixed(2);
     p.MD_AV = (aov || 0).toFixed(2);
     p.MD_M1 = (crSv || 0).toFixed(4);
     p.MD_M2 = (crPa || 0).toFixed(4);
@@ -509,6 +509,7 @@
     p.SEG_EMPTY_STATE = '<div class="empty-state-bar"><span>Segments are coming in the next prototype step</span></div>';
 
     // Exposed for verdicts (not template placeholders)
+    p.BODY_CLS = yoy ? "" : "no-yoy";
     p._badge = worst;
     p._badgePct = isNum(popPcts[worst]) ? popPcts[worst] : null;
     p._pop = { rev: _change(rev, revP), ses: _change(s, sP), cr: _change(crSp, crSpP), aov: _change(aov, aovP) };
@@ -743,7 +744,7 @@
 
     p.MD_SS = String(Math.trunc(s || 0));
     p.MD_CR = (crSp || 0).toFixed(4);
-    p.MD_RV = String(Math.trunc(Math.round(rev || 0)));
+    p.MD_RV = (rev || 0).toFixed(2);
     p.MD_AV = (aov || 0).toFixed(2);
     p.MD_M1 = (crCp || 0).toFixed(4);
     p.MD_M2 = (crAc || 0).toFixed(4);

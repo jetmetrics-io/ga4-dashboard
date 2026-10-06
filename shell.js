@@ -23,9 +23,9 @@ window.JMShell = {
   #jm-app .jm-main { min-height: 68px; padding-top: 12px; padding-bottom: 12px; flex-wrap: wrap; row-gap: 10px; }
   #jm-app .jm-grow { flex: 1 1 auto; }
   #jm-app .jm-brand { display: flex; flex-direction: column; line-height: 1.15; margin-right: 10px; white-space: nowrap; }
-  #jm-app .jm-logo { font-weight: 700; font-size: 14px; }
+  #jm-app .jm-logo { font-weight: 700; font-size: 18px; letter-spacing: -0.2px; }
   #jm-app .jm-logo b { color: var(--jm-accent); font-weight: 700; }
-  #jm-app .jm-prod { color: var(--jm-muted); font-size: 12px; }
+  #jm-app .jm-prod { color: var(--jm-muted); font-size: 13px; margin-top: 2px; }
 
   #jm-app .jm-btn { display: inline-flex; align-items: center; gap: 7px; height: 36px; padding: 0 12px; border: 1px solid var(--jm-line); background: var(--jm-panel); border-radius: 8px; white-space: nowrap; line-height: 1.2; }
   #jm-app .jm-btn:hover { border-color: #CFCFCB; }

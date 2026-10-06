@@ -10,11 +10,13 @@
   .page { width: 100%; background: white; overflow: hidden; }
 
   /* Two halves: Map or Tree on the left, Segments on the right. Map and Tree keep their 900px design and scale down to fit their half. */
-  .split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
+  .split { display: grid; grid-template-columns: minmax(0, 55fr) minmax(0, 45fr); align-items: start; }
   .split-left, .split-right { min-width: 0; }
   .split-right { border-left: 1px solid #F0F0EE; }
   .fit { width: 900px; margin: 0 auto; }
   .tab-panel { display: block; }
+  /* No data for the same period last year: cards show PoP only */
+  .no-yoy .changes .change-block + .change-block { display: none; }
 
   /* Section titles: Map / Tree title with the view switch on the right edge, one Segments title */
   .sect-head { display: flex; align-items: center; gap: 12px; padding: 18px 20px 4px; min-height: 30px; }
@@ -297,7 +299,7 @@
   .m-input:focus { border-bottom-color:#FF9500; color:#666; }
 </style>
 </head>
-<body>
+<body class="{{BODY_CLS}}">
 <div class="page">
 
 <div class="split">
@@ -1141,10 +1143,10 @@
       if (isNaN(raw) || raw <= 0) return;
       const newMicro = raw / 100;
       const newOverall = Math.min(MD.overallCR * newMicro / MD.microCR[i - 1], 1);
-      const newPurchases = Math.round(MD.sessions * newOverall);
-      const newRevenue = Math.round(newPurchases * MD.aov);
+      // Revenue scales with overall conversion (same sessions and order value)
+      const newRevenue = MD.overallCR > 0 ? Math.round(MD.revenue * newOverall / MD.overallCR) : 0;
       const deltaCR = newOverall - MD.overallCR;
-      const deltaRev = newRevenue - MD.revenue;
+      const deltaRev = newRevenue - Math.round(MD.revenue);
       const color = deltaCR >= 0 ? '#52B89A' : '#FF8080';
       const crSign = deltaCR >= 0 ? '+' : '';
       document.getElementById('m_cr_' + i).textContent = (newOverall * 100).toFixed(1) + '%';
@@ -1283,6 +1285,7 @@
 <div class="sect-head"><h2>Segments</h2>
   <span class="help-wrap"><button class="help" type="button" aria-label="About segments" data-tip="help-seg">?</button></span>
 </div>
+<div class="seg-fit">
 <div style="padding:10px 24px 0;">
 {{SEG_EMPTY_STATE}}
 </div>
@@ -1345,6 +1348,7 @@
   </div>
 
 </div><!-- /right-panel -->
+</div><!-- /seg-fit -->
 </div><!-- /panel-segments -->
 </div><!-- /split -->
 
@@ -1411,10 +1415,15 @@
 
 <script>
 // Map and Tree are drawn at 900px; scale them down when their half of the page is narrower.
+// Map and Tree are drawn at 900px; Segments need about 700px. Narrower halves scale down as a whole.
 function fitLeft() {
   var box = document.querySelector('.fit');
   var avail = box.parentElement.clientWidth;
   box.style.zoom = avail < 900 ? String(avail / 900) : '1';
+  var seg = document.querySelector('.seg-fit');
+  var sAvail = seg.parentElement.clientWidth;
+  seg.style.width = sAvail < 700 ? '700px' : '';
+  seg.style.zoom = sAvail < 700 ? String(sAvail / 700) : '1';
 }
 window.addEventListener('resize', fitLeft);
 fitLeft();
