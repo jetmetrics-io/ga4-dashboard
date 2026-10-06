@@ -5,7 +5,7 @@
 (function () {
   "use strict";
 
-  const { SEGMENT_DIMS, buildPeriods, requestPlan, chunk, reportRows, toGa4Data, processMap, buildVerdicts, autoTargets, processTree, processSegments, buildSummary, fillTemplate } = window.JMCore;
+  const { SEGMENT_DIMS, buildPeriods, requestPlan, chunk, reportRows, toGa4Data, processMap, buildVerdicts, targetOptions, processTree, processSegments, buildSummary, fillTemplate } = window.JMCore;
 
   const SCOPE_GA = "https://www.googleapis.com/auth/analytics.readonly";
   // Email (non-sensitive) lets Google skip the account chooser on the next sign-in.
@@ -354,48 +354,52 @@
     return { ...t, overall: t.s_pv * t.pv_atc * t.atc_chk * t.chk_pur };
   }
 
-  // Manual targets win; otherwise best month of the last 12.
+  // Each step's target comes from "best" (best month), "avg" (last 3 months' level) or "own" (a number).
+  // Best and avg are recomputed from fresh data every time; own stays as typed. Default: best month.
   function currentTargets(ga4, propertyId) {
+    const opts = targetOptions(ga4.monthly_events);
     const saved = savedTargets(propertyId);
-    if (saved && saved.mode === "manual") return { targets: withOverall(saved.values), source: "manual" };
-    const auto = autoTargets(ga4.monthly_events);
-    return { targets: auto.targets, source: auto.targets ? `auto · best month of the last ${auto.months}` : null, months: auto.months };
-  }
-
-  function targetsLabel(info) {
-    if (info.source === "manual") return "your own";
-    if (info.targets) return `best month of the last ${info.months} months`;
-    return "not set";
-  }
-
-  function fillTargetsPanel(info) {
-    const t = info.targets;
-    TARGET_KEYS.forEach(([k]) => { $(`t_${k}`).value = t ? (t[k] * 100).toFixed(1) : ""; });
-    $("targetsNote").textContent = info.source === "manual"
-      ? "Your own targets."
-      : info.targets
-        ? `Automatic: each step's best month over the last ${info.months} months. A theoretical peak, not a guaranteed goal.`
-        : `Automatic targets need at least 3 months of history (found ${info.months || 0}). Enter your own.`;
-  }
-
-  function openTargetsPanel() {
-    $("targets").hidden = false;
-    $("targets").scrollIntoView({ behavior: "smooth", block: "nearest" });
-  }
-
-  function saveManualTargets() {
-    const values = {};
-    for (const [k] of TARGET_KEYS) {
-      const v = parseFloat($(`t_${k}`).value);
-      if (!(v > 0)) { $("targetsNote").textContent = "Fill in all four steps with numbers above 0."; return; }
-      values[k] = v / 100;
+    let sources = null;
+    if (saved && saved.sources) sources = saved.sources;
+    else if (saved && saved.mode === "manual" && saved.values) {
+      sources = {};
+      TARGET_KEYS.forEach(([k]) => { sources[k] = { src: "own", val: saved.values[k] }; });
     }
-    store(`jm.targets.${state.lastPropertyId}`, JSON.stringify({ mode: "manual", values }));
-    render();
+    const t = {}, src = {};
+    let ok = sources || opts.months >= 3; // automatic targets need at least 3 months of history
+    TARGET_KEYS.forEach(([k]) => {
+      const sk = sources && sources[k];
+      let name = sk ? sk.src : "best";
+      let v = name === "own" ? sk.val : name === "avg" ? opts.avg[k] : opts.best[k];
+      if (!(v > 0)) { name = "best"; v = opts.best[k]; }
+      if (!(v > 0)) ok = false;
+      t[k] = v > 0 ? v : null;
+      src[k] = name;
+    });
+    const custom = Object.values(src).some((x) => x !== "best");
+    return { targets: ok ? withOverall(t) : null, values: t, sources: src, opts, months: opts.months, source: custom ? "manual" : "auto" };
   }
 
-  function useAutoTargets() {
-    unstore(`jm.targets.${state.lastPropertyId}`);
+  // Data for the targets panel inside the dashboard (tree order, top to bottom).
+  function targetsPanelData(ga4, info) {
+    const fc = ga4.funnel_current, sessions = ga4.agg_current.sessions;
+    const r = (a, b) => (b ? a / b : null);
+    const now = { s_pv: r(fc.view_item, sessions), pv_atc: r(fc.add_to_cart, fc.view_item), atc_chk: r(fc.begin_checkout, fc.add_to_cart), chk_pur: r(fc.purchase, fc.begin_checkout) };
+    const steps = [["chk_pur", "Checkout → Purchase"], ["atc_chk", "Cart → Checkout"], ["pv_atc", "Views → Cart"], ["s_pv", "Sessions → Views"]].map(([key, name]) => ({
+      key, name, now: now[key], best: info.opts.best[key], avg: info.opts.avg[key], target: info.values[key], src: info.sources[key],
+    }));
+    return { steps, months: info.months, nowOverall: r(fc.purchase, sessions) };
+  }
+
+  function saveTargets(sources) {
+    const clean = {};
+    for (const [k] of TARGET_KEYS) {
+      const s = sources && sources[k];
+      if (!s || !["best", "avg", "own"].includes(s.src)) return;
+      clean[k] = s.src === "own" ? { src: "own", val: Number(s.val) } : { src: s.src };
+      if (s.src === "own" && !(clean[k].val > 0)) return;
+    }
+    store(`jm.targets.${state.lastPropertyId}`, JSON.stringify({ sources: clean }));
     render();
   }
 
@@ -621,12 +625,11 @@
     const p = processMap(ga4);
     Object.assign(p, buildVerdicts(p, ga4));
     const info = currentTargets(ga4, state.lastPropertyId);
-    fillTargetsPanel(info);
-    p.TGT_SRC = targetsLabel(info);
+    p.TG_JSON = JSON.stringify(targetsPanelData(ga4, info)).replace(/</g, "\\u003c");
     if (info.targets) {
       Object.assign(p, processTree(ga4, info.targets));
     } else {
-      p.TREE_EMPTY_STATE = '<div class="empty-state-bar"><span>Set funnel targets to build the Driver Tree: click “Change” next to Targets above.</span></div>';
+      p.TREE_EMPTY_STATE = '<div class="empty-state-bar"><span>Set funnel targets to build the Driver Tree.</span><button class="copy-btn" type="button" onclick="openTargets(this)">Set targets</button></div>';
       p.TV_DSP = "none";
     }
     Object.assign(p, processSegments(ga4));
@@ -759,12 +762,9 @@
     window.addEventListener("resize", closeMenu);
     window.addEventListener("scroll", (e) => { if (!$("jmMenu").contains(e.target)) closeMenu(); }, true);
     window.addEventListener("message", (e) => {
-      if (e.source === $("frame").contentWindow && e.data && e.data.jm === "targets") openTargetsPanel();
+      if (e.source === $("frame").contentWindow && e.data && e.data.jm === "targets") saveTargets(e.data.sources);
     });
     $("copyClaude").addEventListener("click", copyForClaude);
-    $("targetsSave").addEventListener("click", saveManualTargets);
-    $("targetsAuto").addEventListener("click", useAutoTargets);
-    $("targetsClose").addEventListener("click", () => { $("targets").hidden = true; });
     renderAll();
     // Fit the iframe to its content (tabs change the height).
     setInterval(() => {
@@ -783,5 +783,5 @@
   else window.addEventListener("load", start);
 
   // Debug handle (no globals besides JMCore, JMShell, JMApp).
-  window.JMApp = { state, render, build, presets, saveManualTargets, useAutoTargets };
+  window.JMApp = { state, render, build, presets, saveTargets };
 })();

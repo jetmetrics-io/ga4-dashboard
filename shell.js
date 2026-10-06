@@ -82,16 +82,9 @@ window.JMShell = {
   #jm-app .jm-msg-act a, #jm-app .jm-msg-act button { color: var(--jm-accent-ink); font-weight: 500; text-decoration: none; background: none; border: 0; padding: 0; }
   #jm-app .jm-msg.jm-error .jm-msg-act button { color: var(--jm-error); text-decoration: underline; }
 
-  /* Targets panel (opened from the Driver Tree) */
-  #jm-app .jm-targets { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px 16px; padding: 14px 20px; border-bottom: 1px solid var(--jm-line); background: var(--jm-sub); }
-  #jm-app .jm-targets-title { grid-column: 1 / -1; font-weight: 600; }
-  #jm-app .jm-targets label { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 13px; }
-  #jm-app .jm-targets input { width: 80px; padding: 5px 8px; border: 1px solid var(--jm-line); border-radius: 6px; background: var(--jm-panel); }
-  #jm-app .jm-targets-actions { grid-column: 1 / -1; display: flex; gap: 8px; }
-  #jm-app .jm-targets-actions .jm-btn { height: 32px; }
+  /* Dark button: Apply in menus */
   #jm-app .jm-dark { background: var(--jm-text); border-color: var(--jm-text); color: #fff; }
   #jm-app .jm-dark:hover { background: #000; border-color: #000; }
-  #jm-app .jm-targets-note { grid-column: 1 / -1; font-size: 12px; color: var(--jm-muted); }
 
   /* Before the first dashboard */
   #jm-app .jm-empty { padding: 72px 24px 84px; text-align: center; }
@@ -183,15 +176,6 @@ window.JMShell = {
     <div class="jm-progress" id="progress" hidden></div>
   </div>
   <div id="msg" class="jm-msg" hidden><span id="msgText"></span><span class="jm-msg-act" id="msgAct"></span></div>
-  <div id="targets" class="jm-targets" hidden>
-    <div class="jm-targets-title">Funnel targets for the Driver Tree</div>
-    <label>Sessions → Product Views <input id="t_s_pv" type="number" step="0.1" min="0"> %</label>
-    <label>Product Views → Add to Cart <input id="t_pv_atc" type="number" step="0.1" min="0"> %</label>
-    <label>Add to Cart → Checkout <input id="t_atc_chk" type="number" step="0.1" min="0"> %</label>
-    <label>Checkout → Purchase <input id="t_chk_pur" type="number" step="0.1" min="0"> %</label>
-    <div class="jm-targets-actions"><button id="targetsSave" class="jm-btn jm-dark">Save my targets</button><button id="targetsAuto" class="jm-btn">Use automatic</button><button id="targetsClose" class="jm-btn">Close</button></div>
-    <div id="targetsNote" class="jm-targets-note"></div>
-  </div>
   <div id="empty" class="jm-empty"><h2 id="emptyTitle">See your GA4 funnel from traffic to revenue</h2><p id="emptyText">Connect Google Analytics with the green button above and pick your store. Reports go from Google straight to this browser; we don't store your data.</p></div>
   <div class="jm-stage"><iframe id="frame" title="Dashboard" hidden></iframe></div>
   <div id="jmMenu" class="jm-menu" hidden></div>

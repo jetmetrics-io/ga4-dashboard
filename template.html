@@ -52,6 +52,37 @@
   /* Verdicts above Map and Tree: plain text, like the segment insights */
   .verdicts .tree-verdict { margin-bottom: 0; background: none; border: 0; border-radius: 0; padding: 0; }
   .verdicts .empty-state-bar { margin-bottom: 0; }
+  /* Targets: "Change targets" in the Overall CR line, pencils after "Target x%", a small panel over the tree */
+  .tg-change { margin-left: auto; flex-shrink: 0; display: inline-flex; align-items: center; gap: 4px; font: inherit; font-size: 12.5px; color: #8A8A8A; background: none; border: 0; padding: 0; cursor: pointer; white-space: nowrap; }
+  .tg-change:hover { color: #0B8169; }
+  .pen { display: inline; margin-left: 3px; padding: 0 2px; border: 0; background: none; color: #B4B4B1; cursor: pointer; opacity: 0; vertical-align: -1px; }
+  .card:hover .pen, .pen:focus-visible { opacity: 1; }
+  .pen:hover { color: #0B8169; }
+  .tg-pop { position: absolute; z-index: 120; width: 470px; max-width: calc(100vw - 16px); background: white; border: 1px solid #E3E3E0; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.12); padding: 12px 14px 10px; font-size: 12.5px; color: #4A4A4A; text-align: left; }
+  .tg-pop[hidden] { display: none; }
+  .tg-pop h3 { font-size: 13px; font-weight: 600; color: #1A1A1A; margin-bottom: 8px; }
+  .tg-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  .tg-table th { font-size: 11px; font-weight: 500; color: #8A8A8A; text-align: right; padding: 0 0 6px 10px; white-space: nowrap; }
+  .tg-table th:first-child { text-align: left; padding-left: 0; }
+  .tg-table th button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; border-bottom: 1px dashed #CFCFCB; }
+  .tg-table th button:hover { color: #0B8169; border-bottom-color: #0B8169; }
+  .tg-table td { padding: 5px 0 5px 10px; text-align: right; border-top: 1px solid #F3F3F1; white-space: nowrap; }
+  .tg-table td:first-child { text-align: left; padding-left: 0; color: #1A1A1A; }
+  .tg-table tr.flash td { background: #F4FAF8; }
+  .tg-now { color: #8A8A8A; }
+  .tg-v { font: inherit; color: #4A4A4A; background: none; border: 0; padding: 1px 4px; border-radius: 4px; cursor: pointer; }
+  .tg-v:hover { background: #F2F2F0; }
+  .tg-v.on { color: #0B8169; font-weight: 600; background: #E8F5F1; }
+  .tg-in { display: inline-flex; align-items: center; gap: 2px; }
+  .tg-in input { width: 52px; height: 26px; border: 1px solid #E3E3E0; border-radius: 6px; padding: 0 6px; font: inherit; font-weight: 600; color: #1A1A1A; text-align: right; -moz-appearance: textfield; appearance: textfield; }
+  .tg-in input::-webkit-inner-spin-button, .tg-in input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+  .tg-foot { display: flex; align-items: center; gap: 6px; margin-top: 8px; padding-top: 8px; border-top: 1px solid #EFEFEC; }
+  .tg-sum { flex: 1; color: #8A8A8A; }
+  .tg-sum b { color: #1A1A1A; font-weight: 600; }
+  .tg-btn { font: inherit; font-size: 12.5px; height: 28px; padding: 0 12px; border-radius: 7px; border: 1px solid #E3E3E0; background: white; cursor: pointer; color: #1A1A1A; }
+  .tg-btn.dark { background: #1A1A1A; border-color: #1A1A1A; color: white; }
+  .tg-err { color: #D64545; }
+  .tg-pop button:focus-visible, .tg-in input:focus-visible, .tg-change:focus-visible { outline: 2px solid #0E9C7D; outline-offset: 1px; }
   .tgt { padding: 2px 20px 0; font-size: 12.5px; color: #8A8A8A; }
   .tgt b { color: #4A4A4A; font-weight: 500; }
   .tgt button { font-family: inherit; font-size: 12.5px; font-weight: 500; color: #0B8169; background: none; border: 0; padding: 0; cursor: pointer; }
@@ -279,7 +310,6 @@
   </div>
   <span class="help-wrap"><button class="help" id="leftHelp" type="button" aria-label="About this view" data-tip="help-map">?</button></span>
 </div>
-<div class="tgt" id="tgtLine" style="display:none;">Targets: <b>{{TGT_SRC}}</b> · <button type="button" onclick="openTargets()">Change</button></div>
 <div class="verdicts">
   <div class="tree-verdict" id="vMap">
     <div class="verdict-row">
@@ -301,6 +331,7 @@
       <div class="verdict-row">
         <span class="verdict-label">Overall CR</span>
         <span class="verdict-text">{{TV_OV}}</span>
+        <button type="button" class="tg-change" onclick="openTargets(this)"><svg width="11" height="11" viewBox="0 0 16 16" aria-hidden="true"><path d="M10.5 2.5 13.5 5.5 5.5 13.5H2.5V10.5Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg> Change targets</button>
       </div>
       <div class="verdict-row">
         <span class="verdict-label">Bottleneck</span>
@@ -1140,7 +1171,7 @@
       <div class="change-block">
         <span class="change-period">VS TGT</span>
         <span class="change-val {{TR1_GC}}"><span class="arrow">{{TR1_GA}}</span>{{TR1_GP}}</span>
-        <span class="change-prev">Target {{TR1_TG}}</span>
+        <span class="change-prev">Target {{TR1_TG}}<button type="button" class="pen" onclick="openTargets(this, 'chk_pur')" aria-label="Change targets"><svg width="11" height="11" viewBox="0 0 16 16" aria-hidden="true"><path d="M10.5 2.5 13.5 5.5 5.5 13.5H2.5V10.5Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></button></span>
       </div>
     </div>
     <div class="progress-area {{TR1_Z}}">
@@ -1157,7 +1188,7 @@
       <div class="change-block">
         <span class="change-period">VS TGT</span>
         <span class="change-val {{TR2_GC}}"><span class="arrow">{{TR2_GA}}</span>{{TR2_GP}}</span>
-        <span class="change-prev">Target {{TR2_TG}}</span>
+        <span class="change-prev">Target {{TR2_TG}}<button type="button" class="pen" onclick="openTargets(this, 'atc_chk')" aria-label="Change targets"><svg width="11" height="11" viewBox="0 0 16 16" aria-hidden="true"><path d="M10.5 2.5 13.5 5.5 5.5 13.5H2.5V10.5Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></button></span>
       </div>
     </div>
     <div class="progress-area {{TR2_Z}}">
@@ -1174,7 +1205,7 @@
       <div class="change-block">
         <span class="change-period">VS TGT</span>
         <span class="change-val {{TR3_GC}}"><span class="arrow">{{TR3_GA}}</span>{{TR3_GP}}</span>
-        <span class="change-prev">Target {{TR3_TG}}</span>
+        <span class="change-prev">Target {{TR3_TG}}<button type="button" class="pen" onclick="openTargets(this, 'pv_atc')" aria-label="Change targets"><svg width="11" height="11" viewBox="0 0 16 16" aria-hidden="true"><path d="M10.5 2.5 13.5 5.5 5.5 13.5H2.5V10.5Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></button></span>
       </div>
     </div>
     <div class="progress-area {{TR3_Z}}">
@@ -1191,7 +1222,7 @@
       <div class="change-block">
         <span class="change-period">VS TGT</span>
         <span class="change-val {{TR4_GC}}"><span class="arrow">{{TR4_GA}}</span>{{TR4_GP}}</span>
-        <span class="change-prev">Target {{TR4_TG}}</span>
+        <span class="change-prev">Target {{TR4_TG}}<button type="button" class="pen" onclick="openTargets(this, 's_pv')" aria-label="Change targets"><svg width="11" height="11" viewBox="0 0 16 16" aria-hidden="true"><path d="M10.5 2.5 13.5 5.5 5.5 13.5H2.5V10.5Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></button></span>
       </div>
     </div>
     <div class="progress-area {{TR4_Z}}">
@@ -1375,6 +1406,7 @@
   <p>Of all sessions that never reach purchase, the share that drops off at this step. The thicker the arrow, the bigger the share.</p>
 </template>
 <template id="badgeTip">{{BG_TIP}}</template>
+<script type="application/json" id="tgData">{{TG_JSON}}</script>
 
 
 <script>
@@ -1434,17 +1466,90 @@ function switchTab(name) {
   document.getElementById('panel-' + name).style.display = 'block';
   document.querySelector('.vt-btn[data-tab="' + name + '"]').classList.add('active');
   document.getElementById('leftTitle').textContent = TITLES[name];
-  document.getElementById('tgtLine').style.display = name === 'tree' ? 'block' : 'none';
   document.getElementById('vMap').style.display = name === 'map' ? '' : 'none';
   document.getElementById('vTree').style.display = name === 'tree' ? '' : 'none';
   document.getElementById('leftHelp').setAttribute('data-tip', 'help-' + name);
   hideTip();
 }
 
-// Targets are edited in the page around the dashboard.
-function openTargets() {
-  if (window.parent && window.parent !== window) window.parent.postMessage({ jm: 'targets' }, '*');
+// ── Targets panel: pick best month / 3-month level / own value per step; the page around saves it ──
+var TG = null;
+try { TG = JSON.parse(document.getElementById('tgData').textContent); } catch (e) { TG = null; }
+var tgPop = document.createElement('div');
+tgPop.className = 'tg-pop';
+tgPop.hidden = true;
+tgPop.setAttribute('role', 'dialog');
+tgPop.setAttribute('aria-label', 'Targets');
+document.body.appendChild(tgPop);
+var tgDraft = null;
+function tgPct(v) { return v === null || v === undefined ? '—' : (v * 100).toFixed(1) + '%'; }
+function tgSame(a, b) { return a !== null && b !== null && a !== undefined && b !== undefined && Math.abs(a - b) < 0.0005; }
+function tgOverall() {
+  var m = 1;
+  for (var i = 0; i < TG.steps.length; i++) { var v = tgDraft[TG.steps[i].key].val; if (!(v > 0)) return null; m *= v; }
+  return m;
 }
+function tgRender() {
+  var rows = TG.steps.map(function (st) {
+    var d = tgDraft[st.key];
+    var cell = function (src) {
+      var v = st[src];
+      return v === null || v === undefined ? '—' : '<button type="button" class="tg-v' + (d.src === src || (d.src === 'own' && tgSame(d.val, v)) ? ' on' : '') + '" data-step="' + st.key + '" data-src="' + src + '">' + tgPct(v) + '</button>';
+    };
+    return '<tr id="tgrow-' + st.key + '"><td>' + st.name + '</td><td class="tg-now">' + tgPct(st.now) + '</td><td>' + cell('best') + '</td><td>' + cell('avg') + '</td>' +
+      '<td><span class="tg-in"><input type="number" step="0.1" min="0" data-own="' + st.key + '" value="' + (d.val > 0 ? (d.val * 100).toFixed(1) : '') + '" aria-label="Target for ' + st.name + '">%</span></td></tr>';
+  }).join('');
+  var o = tgOverall();
+  tgPop.innerHTML = '<h3>Targets</h3><table class="tg-table"><thead><tr><th>Step</th><th>Now</th>' +
+    '<th><button type="button" data-all="best" title="Best month of the last ' + TG.months + ' months, for all steps">Best month</button></th>' +
+    '<th><button type="button" data-all="avg" title="Level of the last 3 months, for all steps">3-mo avg</button></th><th>Target</th></tr></thead><tbody>' + rows + '</tbody></table>' +
+    '<div class="tg-foot"><span class="tg-sum">Overall <b>' + tgPct(o) + '</b> · now ' + tgPct(TG.nowOverall) + '</span>' +
+    '<button type="button" class="tg-btn" data-act="cancel">Cancel</button><button type="button" class="tg-btn dark" data-act="apply">Apply</button></div>';
+}
+function openTargets(anchor, stepKey) {
+  if (!TG) return;
+  tgDraft = {};
+  TG.steps.forEach(function (st) { tgDraft[st.key] = { src: st.src, val: st.target }; });
+  tgRender();
+  tgPop.hidden = false;
+  hideTip();
+  var r = anchor.getBoundingClientRect(), w = tgPop.offsetWidth;
+  var vw = document.documentElement.clientWidth;
+  tgPop.style.left = Math.max(8, Math.min(r.right - w, vw - w - 8)) + window.scrollX + 'px';
+  tgPop.style.top = r.bottom + 6 + window.scrollY + 'px';
+  if (stepKey) {
+    var row = document.getElementById('tgrow-' + stepKey);
+    row.classList.add('flash');
+    setTimeout(function () { var i = row.querySelector('input'); i.focus(); i.select(); }, 0);
+  }
+}
+function closeTargets() { tgPop.hidden = true; tgDraft = null; }
+document.addEventListener('click', function (e) {
+  if (tgPop.hidden) return;
+  var b = e.target.closest ? e.target.closest('button') : null;
+  if (!tgPop.contains(e.target)) { if (!(b && (b.classList.contains('pen') || b.classList.contains('tg-change') || b.classList.contains('copy-btn')))) closeTargets(); return; }
+  if (!b) return;
+  if (b.dataset.all) { TG.steps.forEach(function (st) { var v = st[b.dataset.all]; if (v > 0) tgDraft[st.key] = { src: b.dataset.all, val: v }; }); tgRender(); return; }
+  if (b.dataset.src) { var st = TG.steps.filter(function (x) { return x.key === b.dataset.step; })[0]; tgDraft[st.key] = { src: b.dataset.src, val: st[b.dataset.src] }; tgRender(); return; }
+  if (b.dataset.act === 'cancel') { closeTargets(); return; }
+  if (b.dataset.act === 'apply') {
+    if (tgOverall() === null) { tgPop.querySelector('.tg-sum').innerHTML = '<span class="tg-err">Set a target above 0 for every step.</span>'; return; }
+    var sources = {};
+    TG.steps.forEach(function (st) { var d = tgDraft[st.key]; sources[st.key] = d.src === 'own' ? { src: 'own', val: d.val } : { src: d.src }; });
+    closeTargets();
+    if (window.parent && window.parent !== window) window.parent.postMessage({ jm: 'targets', sources: sources }, '*');
+  }
+});
+tgPop.addEventListener('input', function (e) {
+  var k = e.target.dataset ? e.target.dataset.own : null;
+  if (!k) return;
+  var v = parseFloat(e.target.value);
+  tgDraft[k] = { src: 'own', val: v > 0 ? v / 100 : null };
+  var st = TG.steps.filter(function (x) { return x.key === k; })[0];
+  e.target.closest('tr').querySelectorAll('.tg-v').forEach(function (o) { o.classList.toggle('on', tgSame(tgDraft[k].val, st[o.dataset.src])); });
+  tgPop.querySelector('.tg-sum').innerHTML = 'Overall <b>' + tgPct(tgOverall()) + '</b> · now ' + tgPct(TG.nowOverall);
+});
+document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeTargets(); });
 
 function copyCommand(cmd, btn) {
   var original = btn.textContent;

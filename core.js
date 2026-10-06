@@ -665,6 +665,29 @@
     return { months: n, targets: { ...best, overall: best.s_pv * best.pv_atc * best.atc_chk * best.chk_pur } };
   }
 
+  // Target options per funnel step from the monthly history (the 12 months before the period):
+  // best = the best month, avg = the level of the last 3 months (sum of the step's sessions / sum of the previous step's).
+  const TARGET_STEPS = { s_pv: ["session_start", "view_item"], pv_atc: ["view_item", "add_to_cart"], atc_chk: ["add_to_cart", "begin_checkout"], chk_pur: ["begin_checkout", "purchase"] };
+
+  function targetOptions(monthly) {
+    const months = {};
+    (monthly || []).forEach((r) => {
+      months[r.yearMonth] = months[r.yearMonth] || {};
+      months[r.yearMonth][r.eventName] = r.sessions || 0;
+    });
+    const keys = Object.keys(months).filter((m) => months[m].session_start).sort();
+    const best = {}, avg = {};
+    Object.keys(TARGET_STEPS).forEach((k) => {
+      const [a, b] = TARGET_STEPS[k];
+      const rates = keys.map((m) => _div(months[m][b] || 0, months[m][a] || 0)).filter(isNum);
+      best[k] = rates.length ? Math.max(...rates) : null;
+      let num = 0, den = 0;
+      keys.slice(-3).forEach((m) => { num += months[m][b] || 0; den += months[m][a] || 0; });
+      avg[k] = den ? num / den : null;
+    });
+    return { months: keys.length, best, avg };
+  }
+
   // ── Tree tab (processor.py process_tree) ───────────────────────────────────
 
   const ZONE_COLOR = { good: "#0E9C7D", warn: "#FF9500", bad: "#FF5C60" };
@@ -947,7 +970,7 @@
 
     out.push("\n### Driver tree: conversion steps vs targets");
     if (targetsInfo && targetsInfo.targets) {
-      out.push(`Targets: ${targetsInfo.source === "manual" ? "set by the user" : "each step's best month over the last 12 months"}.`);
+      out.push(`Targets: ${targetsInfo.source === "manual" ? "chosen per step by the user (best month, 3-month average or own values)" : "each step's best month over the last 12 months"}.`);
       const tr = [["TR0", "Overall CR Sessions → Purchase", null], ["TR4", "Sessions → Product Views", "TA4"], ["TR3", "Product Views → Add to Cart", "TA3"], ["TR2", "Add to Cart → Checkout", "TA2"], ["TR1", "Checkout → Purchase", "TA1"]];
       out.push(mdTable(["Step", "Actual", "Target", "Gap", "Share of lost sessions"], tr.map(([k, label, ta]) => [label, p[`${k}_VAL`], p[`${k}_TG`], p[`${k}_GP`], ta ? p[`${ta}_LS`] : "—"])));
     } else {
@@ -1010,7 +1033,7 @@
     return html;
   }
 
-  const api = { SEGMENT_DIMS, buildPeriods, requestPlan, chunk, reportRows, toGa4Data, processMap, buildVerdicts, autoTargets, processTree, processSegments, buildSummary, fillTemplate };
+  const api = { SEGMENT_DIMS, buildPeriods, requestPlan, chunk, reportRows, toGa4Data, processMap, buildVerdicts, autoTargets, targetOptions, processTree, processSegments, buildSummary, fillTemplate };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else global.JMCore = api;
 })(typeof window !== "undefined" ? window : globalThis);
