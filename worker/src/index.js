@@ -143,7 +143,7 @@ async function start(request, env) {
     response_type: "code",
     scope: SCOPES,
     access_type: "offline",
-    include_granted_scopes: "true",
+    // No include_granted_scopes: the grant holds exactly the two scopes above, nothing granted to other clients earlier
     // consent → Google returns a refresh token every time; select_account → "Use another account"
     prompt: url.searchParams.get("select") ? "consent select_account" : "consent",
     state: await makeState(env, origin),

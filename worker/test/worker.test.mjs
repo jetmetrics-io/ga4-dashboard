@@ -48,6 +48,7 @@ test("start sends the popup to Google with offline access, consent and a signed 
   assert.equal(g.searchParams.get("login_hint"), "mary@jetmetrics.io");
   assert.match(g.searchParams.get("scope"), /analytics\.readonly/);
   assert.match(g.searchParams.get("state"), /^[\w-]+\.[\w-]+$/);
+  assert.equal(g.searchParams.get("include_granted_scopes"), null, "only the dashboard's own scopes");
 });
 
 test("start refuses pages that are not allowed", async () => {
