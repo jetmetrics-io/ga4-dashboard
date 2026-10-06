@@ -135,6 +135,10 @@
     margin-left: -16px; margin-right: -16px; margin-bottom: -12px;
   }
 
+  /* Arrows without a colour from the data (e.g. an older core.js) stay green, as before */
+  .arrows [stroke=""] { stroke: #0E9C7D; }
+  .arrows [marker-end="url(#)"] { marker-end: url(#ag); }
+
   .arrows {
     position: absolute; top: 0; left: 0;
     width: 900px; height: 2000px;
