@@ -29,7 +29,7 @@ const call = (path, init = {}) => worker.fetch(new Request(API + path, init), en
 const post = (path, body, origin = PAGE) => call(path, { method: "POST", headers: { "Content-Type": "application/json", Origin: origin }, body: JSON.stringify(body) });
 
 async function startState(origin = PAGE, extra = "") {
-  const res = await call(`/auth/start?origin=${encodeURIComponent(origin)}${extra}`);
+  const res = await call(`/funnel-dashboard/auth/start?origin=${encodeURIComponent(origin)}${extra}`);
   assert.equal(res.status, 302);
   return new URL(res.headers.get("Location"));
 }
@@ -42,7 +42,7 @@ function messageFrom(html) {
 test("start sends the popup to Google with offline access, consent and a signed state", async () => {
   const g = await startState(PAGE, "&hint=mary%40jetmetrics.io");
   assert.equal(g.origin + g.pathname, "https://accounts.google.com/o/oauth2/v2/auth");
-  assert.equal(g.searchParams.get("redirect_uri"), `${API}/auth/callback`);
+  assert.equal(g.searchParams.get("redirect_uri"), `${API}/funnel-dashboard/auth/callback`);
   assert.equal(g.searchParams.get("access_type"), "offline");
   assert.equal(g.searchParams.get("prompt"), "consent");
   assert.equal(g.searchParams.get("login_hint"), "mary@jetmetrics.io");
@@ -52,14 +52,14 @@ test("start sends the popup to Google with offline access, consent and a signed 
 });
 
 test("start refuses pages that are not allowed", async () => {
-  const res = await call(`/auth/start?origin=${encodeURIComponent("https://evil.example")}`);
+  const res = await call(`/funnel-dashboard/auth/start?origin=${encodeURIComponent("https://evil.example")}`);
   assert.equal(res.status, 400);
 });
 
 test("callback exchanges the code and gives the page a token and an encrypted session", async () => {
   calls = [];
   const state = (await startState()).searchParams.get("state");
-  const res = await call(`/auth/callback?code=c-1&state=${encodeURIComponent(state)}`);
+  const res = await call(`/funnel-dashboard/auth/callback?code=c-1&state=${encodeURIComponent(state)}`);
   const { data, target } = messageFrom(await res.text());
   assert.equal(target, PAGE);
   assert.equal(data.ok, true);
@@ -74,38 +74,38 @@ test("callback rejects a tampered or expired state", async () => {
   const state = (await startState()).searchParams.get("state");
   const [payload, sig] = state.split(".");
   const forged = `${payload}x.${sig}`;
-  let msg = messageFrom(await (await call(`/auth/callback?code=c&state=${forged}`)).text());
+  let msg = messageFrom(await (await call(`/funnel-dashboard/auth/callback?code=c&state=${forged}`)).text());
   assert.equal(msg.data.ok, false);
   assert.equal(msg.target, "", "nothing is posted without a valid state");
   const old = Date.now;
   Date.now = () => old() + 11 * 60 * 1000;
-  msg = messageFrom(await (await call(`/auth/callback?code=c&state=${encodeURIComponent(state)}`)).text());
+  msg = messageFrom(await (await call(`/funnel-dashboard/auth/callback?code=c&state=${encodeURIComponent(state)}`)).text());
   Date.now = old;
   assert.equal(msg.data.ok, false);
 });
 
 test("callback passes Google's refusal back to the page", async () => {
   const state = (await startState()).searchParams.get("state");
-  const msg = messageFrom(await (await call(`/auth/callback?error=access_denied&state=${encodeURIComponent(state)}`)).text());
+  const msg = messageFrom(await (await call(`/funnel-dashboard/auth/callback?error=access_denied&state=${encodeURIComponent(state)}`)).text());
   assert.deepEqual([msg.data.ok, msg.data.error, msg.target], [false, "access_denied", PAGE]);
 });
 
 test("refresh turns the session into a fresh access token, only for allowed pages", async () => {
   const session = await sealSession(env, "rt-9");
   tokenAnswer = (p) => (p.refresh_token === "rt-9" ? { status: 200, body: { access_token: "at-9", expires_in: 3599 } } : { status: 400, body: { error: "invalid_grant" } });
-  let res = await post("/auth/refresh", { session });
+  let res = await post("/funnel-dashboard/auth/refresh", { session });
   assert.equal(res.status, 200);
   assert.equal((await res.json()).access_token, "at-9");
   assert.equal(res.headers.get("Access-Control-Allow-Origin"), PAGE);
-  res = await post("/auth/refresh", { session }, "https://evil.example");
+  res = await post("/funnel-dashboard/auth/refresh", { session }, "https://evil.example");
   assert.equal(res.status, 403);
 });
 
 test("refresh says 401 for a broken session or a revoked grant", async () => {
-  let res = await post("/auth/refresh", { session: "garbage" });
+  let res = await post("/funnel-dashboard/auth/refresh", { session: "garbage" });
   assert.equal(res.status, 401);
   const session = await sealSession(env, "rt-revoked");
-  res = await post("/auth/refresh", { session });
+  res = await post("/funnel-dashboard/auth/refresh", { session });
   assert.equal(res.status, 401);
   assert.equal((await res.json()).error, "invalid_grant");
 });
@@ -119,14 +119,14 @@ test("a session sealed with another key does not open", async () => {
 test("revoke calls Google with the refresh token", async () => {
   calls = [];
   const session = await sealSession(env, "rt-5");
-  const res = await post("/auth/revoke", { session });
+  const res = await post("/funnel-dashboard/auth/revoke", { session });
   assert.equal(res.status, 200);
   assert.equal(calls[0].params.token, "rt-5");
 });
 
 test("CORS preflight is answered only for allowed pages", async () => {
-  let res = await call("/auth/refresh", { method: "OPTIONS", headers: { Origin: PAGE } });
+  let res = await call("/funnel-dashboard/auth/refresh", { method: "OPTIONS", headers: { Origin: PAGE } });
   assert.equal(res.status, 204);
-  res = await call("/auth/refresh", { method: "OPTIONS", headers: { Origin: "https://evil.example" } });
+  res = await call("/funnel-dashboard/auth/refresh", { method: "OPTIONS", headers: { Origin: "https://evil.example" } });
   assert.equal(res.status, 403);
 });

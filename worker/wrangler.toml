@@ -1,7 +1,7 @@
-# JetMetrics auth service on Cloudflare Workers.
+# JetMetrics Funnel Dashboard API on Cloudflare Workers (sign-in now; licenses later).
 # Deploy: CLOUDFLARE_API_TOKEN=… CLOUDFLARE_ACCOUNT_ID=… npx wrangler@4 deploy
 # Secrets (once): npx wrangler@4 secret put GOOGLE_CLIENT_SECRET | SESSION_KEY | STATE_KEY
-name = "jetmetrics-auth"
+name = "funnel-dashboard-api"
 main = "src/index.js"
 compatibility_date = "2025-09-01"
 workers_dev = false

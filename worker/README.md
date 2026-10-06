@@ -1,13 +1,13 @@
-# JetMetrics auth service
+# JetMetrics Funnel Dashboard API
 
-Cloudflare Worker at `https://api.jetmetrics.io`. It keeps people signed in to Google without a click every hour, using Google's recommended authorization-code flow:
+Cloudflare Worker `funnel-dashboard-api` at `https://api.jetmetrics.io/funnel-dashboard/`. The `api.jetmetrics.io` host is meant for all JetMetrics products, so each product keeps its routes under its own prefix. It keeps people signed in to Google without a click every hour, using Google's recommended authorization-code flow:
 
 | Route | What it does |
 |---|---|
-| `GET /auth/start?origin=…&hint=…` | Opens in the sign-in popup and redirects to Google (read-only Analytics + email, offline access) |
-| `GET /auth/callback` | Exchanges Google's code for tokens and passes them to the dashboard page with `postMessage` (only to the page that started the sign-in) |
-| `POST /auth/refresh {session}` | Returns a fresh one-hour access token |
-| `POST /auth/revoke {session}` | Revokes the Google grant (Disconnect) |
+| `GET /funnel-dashboard/auth/start?origin=…&hint=…` | Opens in the sign-in popup and redirects to Google (read-only Analytics + email, offline access) |
+| `GET /funnel-dashboard/auth/callback` | Exchanges Google's code for tokens and passes them to the dashboard page with `postMessage` (only to the page that started the sign-in) |
+| `POST /funnel-dashboard/auth/refresh {session}` | Returns a fresh one-hour access token |
+| `POST /funnel-dashboard/auth/revoke {session}` | Revokes the Google grant (Disconnect) |
 
 **Stateless.** The Google refresh token is encrypted (AES-GCM, `SESSION_KEY`) and kept by the browser as an opaque session. Nothing is stored here, and Google Analytics data never passes through the service: the browser calls Google directly with the access token.
 
@@ -15,7 +15,8 @@ Cloudflare Worker at `https://api.jetmetrics.io`. It keeps people signed in to G
 
 - `wrangler.toml` → `[vars]`: `GOOGLE_CLIENT_ID`, `ALLOWED_ORIGINS` (page origins allowed to sign in).
 - Secrets: `GOOGLE_CLIENT_SECRET` (the web OAuth client's secret), `SESSION_KEY` and `STATE_KEY` (random 32 bytes, base64). Changing `SESSION_KEY` signs everyone out.
-- Google Cloud: the OAuth client needs `https://api.jetmetrics.io/auth/callback` under "Authorized redirect URIs".
+- The worker is bound to the whole `api.jetmetrics.io` host (custom domain). When a second product needs the host, switch to routes per prefix (`api.jetmetrics.io/funnel-dashboard/*`); the URLs stay the same.
+- Google Cloud: the OAuth client needs `https://api.jetmetrics.io/funnel-dashboard/auth/callback` under "Authorized redirect URIs".
 
 ## Run
 

@@ -1,10 +1,11 @@
-// JetMetrics auth service (Cloudflare Worker) — api.jetmetrics.io
+// JetMetrics Funnel Dashboard API (Cloudflare Worker) — api.jetmetrics.io/funnel-dashboard/…
+// The host is shared by JetMetrics products, so every path sits under the product's prefix.
 //
 // Signs people in to Google with the authorization-code flow and keeps them signed in:
-//   GET  /auth/start     → redirects the sign-in popup to Google (read-only Analytics + email)
-//   GET  /auth/callback  → exchanges Google's code for tokens, hands them to the dashboard page
-//   POST /auth/refresh   → a fresh one-hour access token from the stored session
-//   POST /auth/revoke    → disconnects: revokes the Google grant
+//   GET  /funnel-dashboard/auth/start     → redirects the sign-in popup to Google (read-only Analytics + email)
+//   GET  /funnel-dashboard/auth/callback  → exchanges Google's code for tokens, hands them to the dashboard page
+//   POST /funnel-dashboard/auth/refresh   → a fresh one-hour access token from the stored session
+//   POST /funnel-dashboard/auth/revoke    → disconnects: revokes the Google grant
 //
 // Stateless: the long-lived Google refresh token is encrypted with SESSION_KEY and kept by the
 // browser as an opaque "session". Nothing is stored here, and Google Analytics data never passes
@@ -21,6 +22,7 @@ const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
 const GOOGLE_REVOKE_URL = "https://oauth2.googleapis.com/revoke";
 const STATE_MAX_AGE_MS = 10 * 60 * 1000;
+const AUTH = "/funnel-dashboard/auth";
 
 // ── Encoding and crypto ──────────────────────────────────────────────────────
 
@@ -139,7 +141,7 @@ async function start(request, env) {
   if (!allowedOrigins(env).includes(origin)) return new Response("This page can't sign in here.", { status: 400 });
   const params = new URLSearchParams({
     client_id: env.GOOGLE_CLIENT_ID,
-    redirect_uri: `${url.origin}/auth/callback`,
+    redirect_uri: `${url.origin}${AUTH}/callback`,
     response_type: "code",
     scope: SCOPES,
     access_type: "offline",
@@ -163,7 +165,7 @@ async function callback(request, env) {
   if (!code) return resultPage(st.o, { ok: false, error: "no_code" });
   const r = await google(env, env.GOOGLE_TOKEN_URL || GOOGLE_TOKEN_URL, {
     code, client_id: env.GOOGLE_CLIENT_ID, client_secret: env.GOOGLE_CLIENT_SECRET,
-    redirect_uri: `${url.origin}/auth/callback`, grant_type: "authorization_code",
+    redirect_uri: `${url.origin}${AUTH}/callback`, grant_type: "authorization_code",
   });
   if (!r.ok || !r.body.access_token) return resultPage(st.o, { ok: false, error: r.body.error || "exchange_failed" });
   return resultPage(st.o, {
@@ -202,13 +204,13 @@ export default {
     const { pathname } = new URL(request.url);
     const headers = cors(env, request);
     if (request.method === "OPTIONS") return new Response(null, { status: Object.keys(headers).length ? 204 : 403, headers });
-    if (request.method === "GET" && pathname === "/auth/start") return start(request, env);
-    if (request.method === "GET" && pathname === "/auth/callback") return callback(request, env);
-    if (request.method === "POST" && (pathname === "/auth/refresh" || pathname === "/auth/revoke")) {
+    if (request.method === "GET" && pathname === `${AUTH}/start`) return start(request, env);
+    if (request.method === "GET" && pathname === `${AUTH}/callback`) return callback(request, env);
+    if (request.method === "POST" && (pathname === `${AUTH}/refresh` || pathname === `${AUTH}/revoke`)) {
       if (!Object.keys(headers).length) return json({ error: "origin_not_allowed" }, 403);
-      return pathname === "/auth/refresh" ? refresh(request, env, headers) : revoke(request, env, headers);
+      return pathname === `${AUTH}/refresh` ? refresh(request, env, headers) : revoke(request, env, headers);
     }
-    if (request.method === "GET" && pathname === "/") return new Response("JetMetrics auth service", { headers: { "Content-Type": "text/plain" } });
+    if (request.method === "GET" && pathname === "/") return new Response("JetMetrics API", { headers: { "Content-Type": "text/plain" } });
     return new Response("Not found", { status: 404 });
   },
 };

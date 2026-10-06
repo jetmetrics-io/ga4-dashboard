@@ -1,5 +1,5 @@
 {
-  "name": "jetmetrics-auth",
+  "name": "funnel-dashboard-api",
   "private": true,
   "type": "module",
   "scripts": {

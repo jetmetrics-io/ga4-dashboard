@@ -33,16 +33,32 @@
     return window.JM_CONFIG && JM_CONFIG.v ? `?v=${JM_CONFIG.v}` : "";
   }
 
+  // All pages of jetmetrics.io share one localStorage, so the dashboard keeps its keys under its own prefix.
+  const KEY = "jm.funnel.";
+
   function store(key, value) {
-    try { localStorage.setItem(key, value); } catch (e) { /* storage unavailable */ }
+    try { localStorage.setItem(KEY + key, value); } catch (e) { /* storage unavailable */ }
   }
 
   function load(key) {
-    try { return localStorage.getItem(key); } catch (e) { return null; }
+    try { return localStorage.getItem(KEY + key); } catch (e) { return null; }
   }
 
   function unstore(key) {
-    try { localStorage.removeItem(key); } catch (e) { /* ignore */ }
+    try { localStorage.removeItem(KEY + key); } catch (e) { /* ignore */ }
+  }
+
+  // Until 06.10.26 the keys were "jm.view", "jm.token"…; move them under the prefix once.
+  function moveOldKeys() {
+    try {
+      Object.keys(localStorage)
+        .filter((k) => ["jm.view", "jm.email", "jm.property", "jm.token", "jm.session"].includes(k) || k.startsWith("jm.targets."))
+        .forEach((k) => {
+          const name = k.slice(3);
+          if (load(name) === null) store(name, localStorage.getItem(k));
+          localStorage.removeItem(k);
+        });
+    } catch (e) { /* storage unavailable */ }
   }
 
   const property = () => state.properties.find((p) => p.id === state.propertyId) || null;
@@ -159,12 +175,12 @@
 
   function saveView() {
     const v = state.view;
-    store("jm.view", JSON.stringify({ ...v, custom: v.custom && v.custom.map(iso), cmpCustom: v.cmpCustom && v.cmpCustom.map(iso) }));
+    store("view", JSON.stringify({ ...v, custom: v.custom && v.custom.map(iso), cmpCustom: v.cmpCustom && v.cmpCustom.map(iso) }));
   }
 
   function loadView() {
     let v = null;
-    try { v = JSON.parse(load("jm.view") || "null"); } catch (e) { v = null; }
+    try { v = JSON.parse(load("view") || "null"); } catch (e) { v = null; }
     if (!v) return { ...DEFAULT_VIEW };
     const m = presetMap(), range = (r) => (Array.isArray(r) && r.length === 2 ? r.map(fromIso) : null);
     const out = { ...DEFAULT_VIEW, ...v, custom: range(v.custom), cmpCustom: range(v.cmpCustom) };
@@ -178,11 +194,12 @@
   // an encrypted long-lived session; fresh one-hour tokens come from it without any clicks.
   // Without it: Google's browser-only token flow (a click every hour) — local development and fallback.
 
-  // On jetmetrics.io the auth service is api.jetmetrics.io; JM_CONFIG.authServer overrides it ("" = browser-only flow).
+  // On jetmetrics.io the auth service is api.jetmetrics.io/funnel-dashboard (the host is shared by JetMetrics products);
+  // JM_CONFIG.authServer overrides it ("" = browser-only flow).
   const authServer = () => {
     const c = window.JM_CONFIG || {};
     if (typeof c.authServer === "string") return c.authServer;
-    return location.hostname === "jetmetrics.io" ? "https://api.jetmetrics.io" : "";
+    return location.hostname === "jetmetrics.io" ? "https://api.jetmetrics.io/funnel-dashboard" : "";
   };
 
   function initAuth() {
@@ -211,7 +228,7 @@
   function requestToken(prompt = "") {
     if (authServer()) {
       const q = new URLSearchParams({ origin: location.origin });
-      const hint = load("jm.email");
+      const hint = load("email");
       if (prompt === "select_account") q.set("select", "1");
       else if (hint) q.set("hint", hint);
       const w = window.open(`${authServer()}/auth/start?${q}`, "jm-auth", "popup,width=520,height=680");
@@ -219,7 +236,7 @@
       return;
     }
     // prompt "" = consent screen only the first time; hint = skip the account chooser.
-    state.tokenClient.requestAccessToken({ prompt, hint: prompt ? undefined : load("jm.email") || undefined });
+    state.tokenClient.requestAccessToken({ prompt, hint: prompt ? undefined : load("email") || undefined });
   }
 
   // Result from the sign-in popup (auth service)
@@ -232,17 +249,17 @@
       message("Access to Google Analytics was not granted. Click Connect and allow it.", "error");
       return;
     }
-    if (d.session) store("jm.session", d.session);
+    if (d.session) store("session", d.session);
     await acceptToken(d.access_token, d.expires_in);
   }
 
   // A fresh one-hour token from the stored session, without any clicks. False if there's no usable session.
   async function refreshToken() {
-    const session = load("jm.session");
+    const session = load("session");
     if (!authServer() || !session) return false;
     try {
       const res = await fetch(`${authServer()}/auth/refresh`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ session }) });
-      if (res.status === 401) { unstore("jm.session"); return false; }
+      if (res.status === 401) { unstore("session"); return false; }
       if (!res.ok) return false;
       const j = await res.json();
       setToken(j.access_token, j.expires_in);
@@ -261,13 +278,13 @@
     state.token = token;
     state.tokenExp = Date.now() + (Number(expiresIn) - 60) * 1000;
     // Keep the token for its lifetime (1 hour) so a reload doesn't need a refresh.
-    store("jm.token", JSON.stringify({ token: state.token, exp: state.tokenExp }));
+    store("token", JSON.stringify({ token: state.token, exp: state.tokenExp }));
   }
 
   function forgetToken() {
     state.token = null;
     state.tokenExp = 0;
-    unstore("jm.token");
+    unstore("token");
   }
 
   function expire() {
@@ -297,7 +314,7 @@
     setToken(token, expiresIn);
     state.expired = false;
     clearMessage();
-    if (!load("jm.email")) rememberEmail();
+    if (!load("email")) rememberEmail();
     renderAll();
     await afterConnect();
   }
@@ -306,7 +323,7 @@
     try {
       const r = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", { headers: { Authorization: `Bearer ${state.token}` } });
       const j = await r.json();
-      if (j.email) store("jm.email", j.email);
+      if (j.email) store("email", j.email);
     } catch (e) { /* not critical */ }
   }
 
@@ -328,7 +345,7 @@
       renderAll();
       return;
     }
-    const saved = load("jm.property");
+    const saved = load("property");
     if (!state.propertyId && saved && state.properties.some((p) => p.id === saved)) state.propertyId = saved;
     renderAll();
     const run = state.pending;
@@ -340,7 +357,7 @@
 
   async function restoreToken() {
     let saved = null;
-    try { saved = JSON.parse(load("jm.token") || "null"); } catch (e) { saved = null; }
+    try { saved = JSON.parse(load("token") || "null"); } catch (e) { saved = null; }
     if (saved && saved.token && Date.now() < saved.exp) {
       state.token = saved.token;
       state.tokenExp = saved.exp;
@@ -349,13 +366,13 @@
       return;
     }
     // The hour is over: get a fresh token from the session, no click needed
-    if (load("jm.session")) {
+    if (load("session")) {
       setLoading(true);
       const ok = await refreshToken();
       setLoading(false);
       if (ok) { renderAll(); afterConnect(); return; }
     }
-    if (load("jm.email")) expire();
+    if (load("email")) expire();
     else renderAll();
   }
 
@@ -364,15 +381,15 @@
   }
 
   function disconnect() {
-    const t = state.token, session = load("jm.session");
+    const t = state.token, session = load("session");
     if (authServer() && session) {
       fetch(`${authServer()}/auth/revoke`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ session }) }).catch(() => {});
     } else if (t && window.google && google.accounts && google.accounts.oauth2.revoke) {
       google.accounts.oauth2.revoke(t, () => {});
     }
-    unstore("jm.session");
+    unstore("session");
     forgetToken();
-    unstore("jm.email");
+    unstore("email");
     state.expired = false;
     state.properties = [];
     state.lastData = null;
@@ -383,7 +400,7 @@
   }
 
   function useAnotherAccount() {
-    unstore("jm.email");
+    unstore("email");
     state.properties = [];
     state.propertyId = null;
     requestToken("select_account");
@@ -434,7 +451,7 @@
   const TARGET_KEYS = [["s_pv", "Sessions → Product Views"], ["pv_atc", "Product Views → Add to Cart"], ["atc_chk", "Add to Cart → Checkout"], ["chk_pur", "Checkout → Purchase"]];
 
   function savedTargets(propertyId) {
-    try { return JSON.parse(load(`jm.targets.${propertyId}`) || "null"); } catch (e) { return null; }
+    try { return JSON.parse(load(`targets.${propertyId}`) || "null"); } catch (e) { return null; }
   }
 
   function withOverall(t) {
@@ -486,7 +503,7 @@
       clean[k] = s.src === "own" ? { src: "own", val: Number(s.val) } : { src: s.src };
       if (s.src === "own" && !(clean[k].val > 0)) return;
     }
-    store(`jm.targets.${state.lastPropertyId}`, JSON.stringify({ sources: clean }));
+    store(`targets.${state.lastPropertyId}`, JSON.stringify({ sources: clean }));
     render();
   }
 
@@ -664,7 +681,7 @@
     if (!(await ensureToken())) { state.pending = build; expire(); return; }
     const prop = property();
     const propertyId = state.propertyId;
-    store("jm.property", propertyId);
+    store("property", propertyId);
     const [start, end] = periodRange(state.view);
     const [ps, pe] = cmpRange(state.view);
     const periods = buildPeriods(start, end, ps, pe);
@@ -869,6 +886,7 @@
   // ── Wire up ────────────────────────────────────────────────────────────────
 
   function start() {
+    moveOldKeys();
     if (window.JMShell) JMShell.mount();
     state.view = loadView();
     document.addEventListener("click", onClick);

@@ -15,7 +15,7 @@ A GA4 e-commerce funnel dashboard that runs entirely in the browser: the user si
 | `claude_prompt.md` | Analysis brief (JetMetrics methodology) that "Copy for Claude" puts above the dashboard data. Plain text — edit freely |
 | `tilda/funnel-dashboard.html` | The HTML block pasted into the Tilda page; loads these files from jsDelivr |
 | `tilda/privacy.html` | The privacy policy block for jetmetrics.io/funnel-dashboard-privacy (static, pasted into Tilda as is) |
-| `worker/` | Auth service on Cloudflare Workers (`api.jetmetrics.io`): sign-in with Google's code flow, silent token renewal from an encrypted session kept in the browser. See `worker/README.md` |
+| `worker/` | The dashboard's API on Cloudflare Workers (`api.jetmetrics.io/funnel-dashboard/`): sign-in with Google's code flow, silent token renewal from an encrypted session kept in the browser. See `worker/README.md` |
 
 ## Updating the live page
 
@@ -30,4 +30,6 @@ Wait ~15 seconds after the push before purging (a purge sent too early keeps the
 ## Notes
 
 - The OAuth client must list every page origin under "Authorized JavaScript origins" (`http://localhost:8080`, `https://jetmetrics.io`).
-- Before public launch: Google verification of the `analytics.readonly` scope, and the sign-in moves to the authorization-code flow through a small licensing/auth worker.
+- On jetmetrics.io the sign-in goes through `worker/` (authorization-code flow); elsewhere the page falls back to the browser-only token flow.
+- Names shared across jetmetrics.io carry the product: browser storage keys start with `jm.funnel.`, API routes with `/funnel-dashboard/`, the privacy page is `/funnel-dashboard-privacy`.
+- Before public launch: Google verification of the `analytics.readonly` scope.
