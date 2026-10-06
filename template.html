@@ -43,7 +43,7 @@
   .sw-warn { color: #FF9500; background: #FFF5E6; }
   .sw-bad { color: #FF5C60; background: #FFF0F0; }
   .sw-badge { color: #FF5C60; background: white; border: 1.5px solid #FF5C60; border-radius: 20px; font-size: 10px; }
-  .sw-row { color: #FF5C60; background: rgba(255,92,96,0.06); border-left: 2.5px solid #FF5C60; border-radius: 0; justify-content: flex-start; }
+  .sw-row { color: #FF5C60; background: rgba(255,92,96,0.06); justify-content: flex-start; }
   .sw-bar { justify-self: start; width: 72px; height: 7px; border-radius: 4px; }
   .sw-bar.good { background: #0E9C7D; } .sw-bar.warn { background: #FF9500; } .sw-bar.bad { background: #FF5C60; }
   .sw-svg { justify-self: start; display: block; }
@@ -183,16 +183,16 @@
   }
   .seg-table thead th { padding-bottom: 8px; }
   .seg-table tr.problem-row { background: rgba(255,92,96,0.05); }
-  .seg-table tr.problem-row td:first-child { border-left: 2.5px solid #FF5C60; padding-left: 5px; }
+  .seg-table tr.problem-row td:first-child { padding-left: 0; }
   .seg-table tr.problem-row .seg-name { color: #FF5C60; }
   .seg-table .mc-good { color: #0E9C7D; font-weight: 500; }
   .seg-table .mc-warn { color: #FF9500; font-weight: 500; }
   .seg-table .mc-bad  { color: #FF5C60; font-weight: 500; }
 
+  /* Insight: plain text above its table (the table card is the only frame) */
   .seg-insight {
-    margin: 0 0 14px; padding: 10px 14px;
-    background: #F7FAF9; border: 1px solid #D8EDE7; border-radius: 8px;
-    font-size: 12.5px; color: #555; line-height: 1.55;
+    margin: 0 0 14px;
+    font-size: 12.5px; color: #4A4A4A; line-height: 1.55;
   }
   .seg-insight:empty { display: none; }
   .seg-insight b { color: #1A1A1A; font-weight: 600; }
