@@ -462,6 +462,19 @@
     return json;
   }
 
+  // 429 "Exhausted concurrent requests": other requests to the same property are still running (another tab,
+  // a colleague, a previous load). Wait and retry a few times before giving up.
+  async function apiRetry(url, body) {
+    for (let i = 0; ; i++) {
+      try {
+        return await api(url, body);
+      } catch (e) {
+        if (e.status !== 429 || !/concurrent/i.test(e.message) || i >= 3) throw e;
+        await new Promise((r) => setTimeout(r, 1000 * 2 ** i));
+      }
+    }
+  }
+
   async function loadProperties() {
     const conn = state.conn;
     setLoading(true);
@@ -741,10 +754,13 @@
     try {
       const plan = requestPlan(periods, gaFilters());
       const batches = chunk(plan, 5);
-      const responses = await Promise.all(
-        batches.map((b) => api(`${DATA}/properties/${propertyId}:batchRunReports`, { requests: b.map((x) => x.request) }))
-      );
-      if (seq !== state.seq) return; // a newer load started
+      // One batch at a time: GA4 allows 10 concurrent requests per property, and the reports of a long
+      // period (e.g. This year so far) run long enough for three parallel batches of 5 to hit that limit.
+      const responses = [];
+      for (const b of batches) {
+        responses.push(await apiRetry(`${DATA}/properties/${propertyId}:batchRunReports`, { requests: b.map((x) => x.request) }));
+        if (seq !== state.seq) return; // a newer load started
+      }
       const rowsByKey = {};
       batches.forEach((b, i) => {
         const reports = responses[i].reports || [];
@@ -770,7 +786,9 @@
       if (e.status === 403) {
         message(`This Google account has no access to ${prop ? prop.name : "this property"}.`, "error", [{ label: "Choose other data", onClick: () => openMenu("data", $("dataBtn")) }]);
       } else if (e.status === 429) {
-        message("Google Analytics quota for this property is used up for now. Try again in an hour.", "error");
+        message(/concurrent/i.test(e.message)
+          ? "Google Analytics is busy with other requests to this property. Try again in a minute."
+          : "Google Analytics quota for this property is used up for now. Try again in an hour.", "error", [{ label: "Try again", onClick: build }]);
       } else {
         message(`Google Analytics returned an error: ${e.message}.`, "error", [{ label: "Try again", onClick: build }]);
       }
