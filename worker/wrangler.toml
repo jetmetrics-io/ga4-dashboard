@@ -14,3 +14,8 @@ ALLOWED_ORIGINS = "https://jetmetrics.io,http://localhost:8080"
 ACCESS_CHECK = "off"
 GUMROAD_PRODUCTS = "99Uk34VKPzfUKcKX_so2IA=="
 ACCESS_URL = "https://datmark.gumroad.com/l/funnel-dashboard-free"
+
+# The dashboard's files (copied by scripts/assets.mjs): https://api.jetmetrics.io/funnel-dashboard/app/…
+[assets]
+directory = "./public"
+html_handling = "none"  # serve template.html as is, no redirect to /template

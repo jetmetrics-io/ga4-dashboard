@@ -1,6 +1,8 @@
 # JetMetrics GA4 Funnel Dashboard (prototype)
 
-A GA4 e-commerce funnel dashboard that runs entirely in the browser: the user signs in with Google, picks a GA4 property, and the page calls the GA4 Data API directly. No backend; report data never leaves the user's browser.
+A GA4 e-commerce funnel dashboard that runs entirely in the browser: the user signs in with Google, picks a GA4 property, and the page calls the GA4 Data API directly. Report data never leaves the user's browser; our small API (`worker/`) only handles sign-in and serves the files.
+
+It is the first of **JetMetrics Web Dashboards**: one Google app (consent screen, verification, privacy policy) for all our web dashboards on GA4. Home page jetmetrics.io/web-dashboards, privacy policy jetmetrics.io/web-dashboards-privacy.
 
 ## Files
 
@@ -13,23 +15,24 @@ A GA4 e-commerce funnel dashboard that runs entirely in the browser: the user si
 | `app.js` | Google sign-in (GIS token model), property list (Admin API), period presets with their usual comparison (PoP), segment filters, data loading, targets, rendering. Exposes `window.JMApp` for debugging |
 | `template.html` | Dashboard template with `{{PLACEHOLDERS}}`: Map or Tree on the left (title + view switch), Segments on the right |
 | `claude_prompt.md` | Analysis brief (JetMetrics methodology) that "Copy for Claude" puts above the dashboard data. Plain text — edit freely |
-| `tilda/funnel-dashboard.html` | The HTML block pasted into the Tilda page; loads these files from jsDelivr |
-| `tilda/privacy.html` | The privacy policy block for jetmetrics.io/funnel-dashboard-privacy (static, pasted into Tilda as is) |
-| `worker/` | The dashboard's API on Cloudflare Workers (`api.jetmetrics.io/funnel-dashboard/`): sign-in with Google's code flow, silent token renewal from an encrypted session kept in the browser. See `worker/README.md` |
+| `tilda/funnel-dashboard.html` | The HTML block of jetmetrics.io/funnel-dashboard; loads these files from `api.jetmetrics.io/funnel-dashboard/app/` |
+| `tilda/web-dashboards.html` | The block of jetmetrics.io/web-dashboards: home page of JetMetrics Web Dashboards, one card per dashboard |
+| `tilda/web-dashboards-privacy.html` | The block of jetmetrics.io/web-dashboards-privacy: privacy policy of JetMetrics Web Dashboards |
+| `worker/` | The dashboard's API on Cloudflare Workers (`api.jetmetrics.io/funnel-dashboard/`): sign-in with Google's code flow, silent token renewal from an encrypted session kept in the browser, access check on Gumroad, and the dashboard's files. See `worker/README.md` |
 
 ## Updating the live page
 
-The Tilda block loads files from `cdn.jsdelivr.net/gh/jetmetrics-io/ga4-dashboard@main/` with a `?v=` suffix that changes every 10 minutes (jsDelivr lets browsers cache files for a week). After pushing to `main`, purge the CDN cache for changed files:
+The page loads the dashboard's files from our API, `https://api.jetmetrics.io/funnel-dashboard/app/` (static assets of `worker/`, `Cache-Control: no-cache`: browsers check for a new version on every load). After changing `shell.js`, `core.js`, `app.js`, `template.html` or `claude_prompt.md`, deploy the worker; the change is live at once:
 
 ```
-curl https://purge.jsdelivr.net/gh/jetmetrics-io/ga4-dashboard@main/app.js
+cd worker && CLOUDFLARE_API_TOKEN=… CLOUDFLARE_ACCOUNT_ID=… npm run deploy
 ```
 
-Wait ~15 seconds after the push before purging (a purge sent too early keeps the old version), then check the file on the CDN.
+Until 07.10.26 the files came from jsDelivr (`@main`); it served stale versions for hours, so it is no longer used.
 
 ## Notes
 
 - The OAuth client must list every page origin under "Authorized JavaScript origins" (`http://localhost:8080`, `https://jetmetrics.io`).
 - On jetmetrics.io the sign-in goes through `worker/` (authorization-code flow); elsewhere the page falls back to the browser-only token flow.
-- Names shared across jetmetrics.io carry the product: browser storage keys start with `jm.funnel.`, API routes with `/funnel-dashboard/`, the privacy page is `/funnel-dashboard-privacy`.
+- Names shared across jetmetrics.io carry the product: browser storage keys start with `jm.funnel.`, API routes with `/funnel-dashboard/`. What belongs to all web dashboards carries `web-dashboards` (home page, privacy policy, the Google app's name).
 - Before public launch: Google verification of the `analytics.readonly` scope.

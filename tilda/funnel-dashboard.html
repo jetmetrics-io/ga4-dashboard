@@ -3,13 +3,12 @@
 <script>
 window.JM_CONFIG = {
   clientId: "944186126368-1ok1odtnuklqv6553jr8vchb98jukvrj.apps.googleusercontent.com",
-  assetsBase: "https://cdn.jsdelivr.net/gh/jetmetrics-io/ga4-dashboard@main/",
-  // Changes every 10 minutes so browsers pick up new versions (the CDN lets them cache files for a week).
-  v: String(Math.floor(Date.now() / 600000))
+  // The dashboard's files, served by our API (web/worker); browsers check for a new version on every load.
+  assetsBase: "https://api.jetmetrics.io/funnel-dashboard/app/"
 };
 ["shell.js", "core.js", "app.js"].forEach(function (f) {
   var s = document.createElement("script");
-  s.src = window.JM_CONFIG.assetsBase + f + "?v=" + window.JM_CONFIG.v;
+  s.src = window.JM_CONFIG.assetsBase + f;
   s.async = false;
   document.body.appendChild(s);
 });

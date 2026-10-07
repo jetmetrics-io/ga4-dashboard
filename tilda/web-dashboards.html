@@ -1,0 +1,58 @@
+<!-- jetmetrics.io/web-dashboards — Tilda HTML block (T123). Home page of JetMetrics Web Dashboards, the Google app behind all our web dashboards: one card per dashboard. Source of truth for this block. -->
+<style>
+  .jm-wd { max-width: 880px; margin: 0 auto; padding: 56px 20px 72px; color: #1A1A1A; font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  .jm-wd h1 { font-size: 36px; line-height: 1.15; font-weight: 700; margin: 0 0 12px; letter-spacing: -0.5px; }
+  .jm-wd .jm-wd-lead { font-size: 18px; color: #4A4A4A; max-width: 640px; margin: 0 0 40px; }
+  .jm-wd h2 { font-size: 13px; font-weight: 600; letter-spacing: 0.8px; text-transform: uppercase; color: #8A8A8A; margin: 0 0 14px; }
+  .jm-wd section { margin: 0 0 44px; }
+  .jm-wd .jm-wd-card { display: grid; grid-template-columns: 1fr auto; gap: 16px 28px; align-items: center; border: 1px solid #E3E3E0; border-radius: 12px; padding: 24px 26px; background: #FFFFFF; }
+  .jm-wd .jm-wd-card h3 { font-size: 22px; line-height: 1.25; font-weight: 600; margin: 0 0 6px; }
+  .jm-wd .jm-wd-card p { color: #4A4A4A; margin: 0; }
+  .jm-wd .jm-wd-btn { display: inline-block; background: #0E9C7D; color: #FFFFFF; font-weight: 600; text-decoration: none; padding: 12px 20px; border-radius: 8px; white-space: nowrap; }
+  .jm-wd .jm-wd-btn:hover { background: #0B8169; }
+  .jm-wd ol { margin: 0; padding-left: 22px; color: #333; }
+  .jm-wd ol li { margin: 0 0 8px; }
+  .jm-wd .jm-wd-box { background: #F6F6F4; border-radius: 10px; padding: 18px 20px; color: #333; }
+  .jm-wd .jm-wd-box p { margin: 0 0 10px; }
+  .jm-wd .jm-wd-box p:last-child { margin: 0; }
+  .jm-wd a:not(.jm-wd-btn) { color: #0B8169; }
+  .jm-wd .jm-wd-foot { color: #8A8A8A; font-size: 14px; }
+  @media (max-width: 640px) {
+    .jm-wd h1 { font-size: 30px; }
+    .jm-wd .jm-wd-card { grid-template-columns: 1fr; }
+  }
+</style>
+<div class="jm-wd">
+  <h1>JetMetrics Web Dashboards</h1>
+  <p class="jm-wd-lead">Dashboards that connect to your Google Analytics 4 and show your store's numbers right in the browser. Sign in with Google, pick your property, and the dashboard is ready in about a minute. Your data goes from Google straight to your browser.</p>
+
+  <section>
+    <h2>Dashboards</h2>
+    <div class="jm-wd-card">
+      <div>
+        <h3>Funnel Dashboard</h3>
+        <p>Your GA4 e-commerce funnel on one page: traffic, product views, cart, checkout, purchases and revenue, compared with the previous period and last year, by user type, traffic source, device and landing page.</p>
+      </div>
+      <a class="jm-wd-btn" href="/funnel-dashboard">Open Funnel Dashboard</a>
+    </div>
+  </section>
+
+  <section>
+    <h2>How it works</h2>
+    <ol>
+      <li>Open a dashboard and click “Connect Google Analytics”.</li>
+      <li>In Google's window, allow JetMetrics Web Dashboards read-only access to your Google Analytics data.</li>
+      <li>Pick your GA4 property. The dashboard loads with your numbers and keeps you signed in.</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>Your data</h2>
+    <div class="jm-wd-box">
+      <p>JetMetrics Web Dashboards ask Google for read-only access to your Google Analytics data and for your email address. They use them only to list your GA4 properties, build the dashboard you open and check your access. Reports go from Google straight to your browser and are shown only to you: JetMetrics doesn't receive, store or share your Analytics data. You can disconnect at any time.</p>
+      <p><a href="/web-dashboards-privacy">Privacy policy</a></p>
+    </div>
+  </section>
+
+  <p class="jm-wd-foot">Questions: <a href="mailto:mary@jetmetrics.io">mary@jetmetrics.io</a></p>
+</div>

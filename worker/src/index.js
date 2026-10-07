@@ -135,7 +135,7 @@ async function google(env, url, params) {
 function resultPage(origin, message) {
   const data = JSON.stringify({ jm: "auth", ...message }).replace(/</g, "\\u003c");
   const target = JSON.stringify(origin || "");
-  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>JetMetrics Funnel Dashboard</title>
+  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>JetMetrics Web Dashboards</title>
 <meta name="viewport" content="width=device-width, initial-scale=1"><style>body{font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#1A1A1A;margin:0;display:grid;place-items:center;min-height:100vh;text-align:center;padding:24px}</style></head>
 <body><p id="m">${message.ok ? "Connected. You can close this window." : message.error === "no_access" ? "This Google account doesn't have access to the dashboard yet. You can close this window." : "Sign-in didn't finish. You can close this window and try again."}</p>
 <script>

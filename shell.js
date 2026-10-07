@@ -203,7 +203,7 @@ window.JMShell = {
         <div class="jm-feat"><b>Segments and filters</b><span>The funnel by user type, traffic source, device and landing page. Every cut also works as a filter.</span></div>
         <div class="jm-feat"><b>Copy for Claude</b><span>The dashboard's numbers with our analysis brief, ready to paste into a Claude chat.</span></div>
       </div>
-      <div class="jm-data-note"><b>Your data.</b> JetMetrics Funnel Dashboard asks Google for read-only access to your Google Analytics data and for your email address. It uses them to list your GA4 properties and build this dashboard for the period you choose, and checks your email address with our store at Gumroad to confirm access. Reports go from Google straight to your browser and are shown only to you: JetMetrics doesn't receive, store or share them. Disconnect at any time. <a href="/funnel-dashboard-privacy">Privacy policy</a></div>
+      <div class="jm-data-note"><b>Your data.</b> When you connect, Google asks you to give JetMetrics Web Dashboards read-only access to your Google Analytics data and your email address. The dashboard uses them to list your GA4 properties and build itself for the period you choose, and checks your email address with our store at Gumroad to confirm access. Reports go from Google straight to your browser and are shown only to you: JetMetrics doesn't receive, store or share them. Disconnect at any time. <a href="/web-dashboards-privacy">Privacy policy</a></div>
       <div class="jm-intro-cta"><button class="jm-btn jm-cta" data-act="connect">Connect Google Analytics</button></div>
     </div>
     <div id="noAccess" class="jm-intro-cta jm-noaccess" hidden>
@@ -213,7 +213,7 @@ window.JMShell = {
     </div>
   </div>
   <div class="jm-stage"><iframe id="frame" title="Dashboard" hidden></iframe></div>
-  <div class="jm-footer"><span>JetMetrics Funnel Dashboard</span><a href="/funnel-dashboard-privacy">Privacy policy</a><a href="mailto:mary@jetmetrics.io">mary@jetmetrics.io</a></div>
+  <div class="jm-footer"><span>Funnel Dashboard</span><a href="/web-dashboards">JetMetrics Web Dashboards</a><a href="/web-dashboards-privacy">Privacy policy</a><a href="mailto:mary@jetmetrics.io">mary@jetmetrics.io</a></div>
   <div id="jmMenu" class="jm-menu" hidden></div>
   `;
   },

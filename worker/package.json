@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "test": "node --test test/*.test.mjs",
-    "deploy": "npx wrangler@4 deploy"
+    "assets": "node scripts/assets.mjs",
+    "deploy": "node scripts/assets.mjs && npx wrangler@4 deploy"
   }
 }

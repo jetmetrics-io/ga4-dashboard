@@ -13,6 +13,10 @@ Cloudflare Worker `funnel-dashboard-api` at `https://api.jetmetrics.io/funnel-da
 
 **Stateless.** The Google refresh token is encrypted (AES-GCM, `SESSION_KEY`) and kept by the browser as an opaque session. Nothing is stored here, and Google Analytics data never passes through the service: the browser calls Google directly with the access token.
 
+**The dashboard's files.** `npm run deploy` first copies `shell.js`, `core.js`, `app.js`, `template.html` and `claude_prompt.md` from the repo root into `public/funnel-dashboard/app/` (`scripts/assets.mjs`); the Worker serves them as static assets at `https://api.jetmetrics.io/funnel-dashboard/app/<file>` with `Access-Control-Allow-Origin: *` and `Cache-Control: no-cache`. `public/` is generated, not committed.
+
+**Old paths.** `/auth/…` (before 06.10.26) is still answered as `/funnel-dashboard/auth/…` for pages that loaded an old app.js; remove once no page loads files from jsDelivr.
+
 ## Config
 
 - `wrangler.toml` → `[vars]`: `GOOGLE_CLIENT_ID`, `ALLOWED_ORIGINS` (page origins allowed to sign in).
