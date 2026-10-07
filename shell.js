@@ -213,7 +213,7 @@ window.JMShell = {
     </div>
   </div>
   <div class="jm-stage"><iframe id="frame" title="Dashboard" hidden></iframe></div>
-  <div class="jm-footer"><span>Funnel Dashboard</span><a href="/web-dashboards">JetMetrics Web Dashboards</a><a href="/web-dashboards-privacy">Privacy policy</a><a href="mailto:mary@jetmetrics.io">mary@jetmetrics.io</a></div>
+  <div class="jm-footer"><span>Funnel Dashboard</span><a href="/web-dashboards">JetMetrics Web Dashboards</a><a href="/web-dashboards-privacy">Privacy policy</a><a href="mailto:team@jetmetrics.io">team@jetmetrics.io</a></div>
   <div id="jmMenu" class="jm-menu" hidden></div>
   `;
   },
