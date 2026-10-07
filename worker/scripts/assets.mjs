@@ -2,7 +2,7 @@
 // https://api.jetmetrics.io/funnel-dashboard/app/<file>. Runs before every deploy (npm run deploy).
 import { cpSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 
-const FILES = ["shell.js", "core.js", "app.js", "template.html", "claude_prompt.md"];
+const FILES = ["shell.js", "core.js", "app.js", "demo.js", "template.html", "claude_prompt.md"];
 const out = new URL("../public/", import.meta.url);
 const app = new URL("funnel-dashboard/app/", out);
 

@@ -21,7 +21,7 @@
   const CACHE_SIZE = 12;
 
   const state = {
-    token: null, tokenExp: 0, tokenClient: null, expired: false, noAccess: null, cache: new Map(),
+    token: null, tokenExp: 0, tokenClient: null, expired: false, noAccess: null, cache: new Map(), demo: false,
     properties: [], propertyId: null,
     template: null, lastData: null, loading: false, loadedAt: 0, seq: 0, conn: 0,
     view: null, filters: {}, options: {},
@@ -363,6 +363,7 @@
 
   // Properties, then the dashboard for the last used property.
   async function afterConnect(retried = false) {
+    if (state.demo) return; // signed in, but looking at the demo: the real data loads when they leave it
     const conn = state.conn;
     try {
       if (!state.properties.length) await loadProperties();
@@ -450,9 +451,67 @@
     requestToken("select_account");
   }
 
+  // ── Demo store: sample data from demo.js, no Google ─────────────────────────
+
+  function loadScript(src) {
+    return new Promise((resolve, reject) => {
+      const s = document.createElement("script");
+      s.src = src;
+      s.onload = resolve;
+      s.onerror = () => reject(new Error("The demo didn't load. Check the connection and try again."));
+      document.body.appendChild(s);
+    });
+  }
+
+  async function enterDemo() {
+    closeMenu();
+    clearMessage();
+    if (!window.JMDemo) {
+      setLoading(true);
+      try {
+        await loadScript(`${(window.JM_CONFIG && JM_CONFIG.assetsBase) || ""}demo.js`);
+      } catch (e) {
+        setLoading(false);
+        message(e.message, "error");
+        return;
+      }
+    }
+    state.conn++; // drop anything still loading for the real account
+    state.demo = true;
+    state.properties = [JMDemo.property];
+    state.propertyId = JMDemo.property.id;
+    state.lastData = null;
+    resetFilters();
+    build();
+  }
+
+  function leaveDemo() {
+    state.demo = false;
+    state.conn++;
+    state.seq++;
+    setLoading(false);
+    state.properties = [];
+    state.propertyId = load("property");
+    state.lastData = null;
+    state.cache.clear();
+    resetFilters();
+    $("frame").hidden = true;
+    $("frame").removeAttribute("srcdoc");
+    clearMessage();
+    renderAll();
+  }
+
+  // "Connect Google Analytics" from the demo: straight to the real data if already signed in
+  function connectFromDemo() {
+    leaveDemo();
+    if (tokenValid() || load("session")) restoreToken();
+    else requestToken();
+  }
+
   // ── Google APIs ────────────────────────────────────────────────────────────
 
   async function api(url, body) {
+    if (state.demo) return JMDemo.answer(url, body);
     const res = await fetch(url, {
       method: body ? "POST" : "GET",
       headers: { Authorization: `Bearer ${state.token}`, "Content-Type": "application/json" },
@@ -595,7 +654,9 @@
   function renderData() {
     const prop = property();
     let k = "Your data", v = "Connect Google Analytics", solid = true, chev = false;
-    if (state.expired) {
+    if (state.demo) {
+      k = "Demo store · sample data";
+    } else if (state.expired) {
       k = prop ? `${prop.name} · session ended` : "Session ended";
       v = "Reconnect Google Analytics";
     } else if (state.token) {
@@ -637,6 +698,8 @@
     } else if (state.expired) {
       title = "Reconnect to see your dashboard";
       text = "Your store and period are remembered. Reports go from Google straight to this browser; we don't store your data.";
+    } else if (state.demo) {
+      title = "Loading the demo…"; text = "A demo store with sample data, no Google sign-in needed.";
     } else if (state.token) {
       if (state.loading) { title = "Loading your dashboard…"; text = "Reports go from Google straight to this browser."; }
       else if (!state.propertyId && state.properties.length) { title = "Choose your store"; text = "Pick the Google Analytics property of your store with the green button above."; }
@@ -644,14 +707,14 @@
     $("emptyTitle").textContent = title;
     $("emptyText").textContent = text;
     // The product description is for people who haven't connected yet
-    $("intro").hidden = !!(state.token || state.expired || na);
+    $("intro").hidden = !!(state.token || state.expired || na || state.demo);
     $("noAccess").hidden = !na;
     if (na) $("getAccess").href = na.url || "#";
   }
 
   function renderAll() {
     renderData();
-    const ready = !!(state.token && state.propertyId && !state.expired) || !!state.lastData;
+    const ready = !!(state.token && state.propertyId && !state.expired) || state.demo || !!state.lastData;
     $("fbar").hidden = !ready;
     $("copyClaude").hidden = !state.lastData;
     $("moreBtn").hidden = !state.lastData;
@@ -743,13 +806,13 @@
   async function build(retried = false) {
     if (!state.propertyId) { renderAll(); return; }
     const conn = state.conn;
-    if (!(await ensureToken())) {
+    if (!state.demo && !(await ensureToken())) {
       if (conn !== state.conn) return; // disconnected meanwhile
       state.pending = build; expire(); return;
     }
     const prop = property();
     const propertyId = state.propertyId;
-    store("property", propertyId);
+    if (!state.demo) store("property", propertyId);
     const [start, end] = periodRange(state.view);
     const [ps, pe] = cmpRange(state.view);
     const periods = buildPeriods(start, end, ps, pe);
@@ -798,6 +861,7 @@
       if (seq !== state.seq) return;
       render();
       dataNotice(d, sampled);
+      if (state.demo) message("You're looking at a demo store with sample data. Connect Google Analytics to see your own store.", "info", [{ label: "Connect Google Analytics", onClick: connectFromDemo }]);
     } catch (e) {
       if (seq !== state.seq) return;
       if (e.status === 401) {
@@ -943,6 +1007,7 @@
     if (t.dataset.all) { menu.querySelectorAll(".jm-opts label:not([hidden]) input[type=checkbox]").forEach((i) => { i.checked = t.dataset.all === "1"; }); return; }
     if (t.dataset.clear) { e.stopPropagation(); state.filters[t.dataset.clear] = []; closeMenu(); build(); return; }
     if (t.id === "dataBtn") {
+      if (state.demo) { closeMenu(); connectFromDemo(); return; }
       if (state.expired || !state.token) { closeMenu(); requestToken(); return; }
       openMenu("data", t); return;
     }
@@ -960,6 +1025,7 @@
     }
     const act = t.dataset.act;
     if (act === "connect") { closeMenu(); requestToken(); return; }
+    if (act === "demo") { enterDemo(); return; }
     if (act === "applyDates") { state.view = { ...DR }; saveView(); closeMenu(); build(); return; }
     if (act === "cancel") { closeMenu(); return; }
     if (act === "reload") { closeMenu(); state.cache.clear(); build(); return; }
@@ -1017,6 +1083,8 @@
       const doc = $("frame").contentDocument;
       if (!$("frame").hidden && doc && doc.body) $("frame").style.height = `${doc.documentElement.scrollHeight + 20}px`;
     }, 500);
+    // ?demo opens the demo store right away (links from the site and Gumroad)
+    if (new URLSearchParams(location.search).has("demo")) enterDemo();
     if (authServer()) { initAuth(); return; }
     const wait = setInterval(() => {
       if (window.google && google.accounts && google.accounts.oauth2) {

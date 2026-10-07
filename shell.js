@@ -99,7 +99,8 @@ window.JMShell = {
   #jm-app .jm-data-note { margin-top: 16px; padding: 14px 16px; border-radius: 10px; background: var(--jm-sub); color: var(--jm-ink2); font-size: 13px; line-height: 1.55; }
   #jm-app .jm-data-note b { color: var(--jm-text); }
   #jm-app .jm-data-note a, #jm-app .jm-footer a { color: var(--jm-accent-ink); }
-  #jm-app .jm-intro-cta { margin-top: 20px; text-align: center; }
+  #jm-app .jm-intro-cta { margin-top: 20px; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+  #jm-app .jm-demo-btn { height: 42px; padding: 0 20px; font-weight: 600; }
   #jm-app .jm-noaccess { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
   #jm-app .jm-noaccess[hidden] { display: none; }
   #jm-app .jm-noaccess .jm-btn { height: 42px; text-decoration: none; }
@@ -204,7 +205,7 @@ window.JMShell = {
         <div class="jm-feat"><b>Copy for Claude</b><span>The dashboard's numbers with our analysis brief, ready to paste into a Claude chat.</span></div>
       </div>
       <div class="jm-data-note"><b>Your data.</b> When you connect, Google asks you to give JetMetrics Web Dashboards read-only access to your Google Analytics data and your email address. The dashboard uses them to list your GA4 properties and build itself for the period you choose, and checks your email address with our store at Gumroad to confirm access. Reports go from Google straight to your browser and are shown only to you: JetMetrics doesn't receive, store or share them. Disconnect at any time. <a href="/web-dashboards-privacy">Privacy policy</a></div>
-      <div class="jm-intro-cta"><button class="jm-btn jm-cta" data-act="connect">Connect Google Analytics</button></div>
+      <div class="jm-intro-cta"><button class="jm-btn jm-cta" data-act="connect">Connect Google Analytics</button><button class="jm-btn jm-demo-btn" data-act="demo">See a live demo</button></div>
     </div>
     <div id="noAccess" class="jm-intro-cta jm-noaccess" hidden>
       <a id="getAccess" class="jm-btn jm-cta" href="#" target="_blank" rel="noopener">Get free access</a>

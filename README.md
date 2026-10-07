@@ -13,6 +13,7 @@ It is the first of **JetMetrics Web Dashboards**: one Google app (consent screen
 | `shell.js` | App shell: scoped CSS and markup of the header (data button, period and segment filters, Copy for Claude, menu), messages, targets panel; mounted into `#jm-app` |
 | `core.js` | GA4 query plan (15 reports in 3 `batchRunReports` calls), metric calculations for the Map, Tree and Segments tabs, template filling. Exposes `window.JMCore` |
 | `app.js` | Google sign-in (GIS token model), property list (Admin API), period presets with their usual comparison (PoP), segment filters, data loading, targets, rendering. Exposes `window.JMApp` for debugging |
+| `demo.js` | Demo store with sample data (fashion DTC, ~400k sessions a month, two built-in stories): answers the dashboard's GA4 requests in the browser, any period and filter. Loaded on "See a live demo" or `?demo` |
 | `template.html` | Dashboard template with `{{PLACEHOLDERS}}`: Map or Tree on the left (title + view switch), Segments on the right |
 | `claude_prompt.md` | Analysis brief (JetMetrics methodology) that "Copy for Claude" puts above the dashboard data. Plain text — edit freely |
 | `tilda/funnel-dashboard.html` | The HTML block of jetmetrics.io/funnel-dashboard; loads these files from `api.jetmetrics.io/funnel-dashboard/app/` |
