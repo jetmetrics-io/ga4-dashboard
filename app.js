@@ -785,6 +785,9 @@
       }
       if (e.status === 403) {
         message(`This Google account has no access to ${prop ? prop.name : "this property"}.`, "error", [{ label: "Choose other data", onClick: () => openMenu("data", $("dataBtn")) }]);
+      } else if (e.status === 429 && /denied access/i.test(e.message)) {
+        // Google's Demo Account properties (Google Merch Shop, Flood-It!) can't be read by any app
+        message(`Google doesn't let apps read ${prop ? prop.name : "this property"}: Google's demo properties are closed to the Analytics API. Choose another property.`, "error", [{ label: "Choose other data", onClick: () => openMenu("data", $("dataBtn")) }]);
       } else if (e.status === 429) {
         message(/concurrent/i.test(e.message)
           ? "Google Analytics is busy with other requests to this property. Try again in a minute."
