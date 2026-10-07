@@ -1002,13 +1002,11 @@
     <line x1="293" y1="0" x2="293" y2="1790" stroke="#c8c8c8" stroke-width="1" stroke-dasharray="5,5"/>
     <line x1="607" y1="0" x2="607" y2="1790" stroke="#c8c8c8" stroke-width="1" stroke-dasharray="5,5"/>
     <line x1="450" y1="534" x2="450" y2="320" stroke="{{AC_PUR}}" stroke-width="2.5" stroke-linecap="round" marker-end="url(#{{AM_PUR}})"/>
-    <!-- Merging arrows: each in its source's colour up to the merge, the shared end in the colour of the card they point to -->
-    <path d="M 653,134 H 621 A 14,14 0 0,0 607,148 V 214 A 14,14 0 0,1 593,228" fill="none" stroke="{{AC_AOV}}" stroke-width="2.5" stroke-linecap="round"/>
-    <path d="M 653,322 H 621 A 14,14 0 0,1 607,308 V 242 A 14,14 0 0,0 593,228" fill="none" stroke="{{AC_ARP}}" stroke-width="2.5" stroke-linecap="round"/>
-    <path d="M 593,228 H 550" fill="none" stroke="{{AC_REV}}" stroke-width="2.5" stroke-linecap="round" marker-end="url(#{{AM_REV}})"/>
-    <path d="M 240,526 H 279 A 14,14 0 0,1 293,540 V 612 A 14,14 0 0,0 307,626" fill="none" stroke="{{AC_CON}}" stroke-width="2.5" stroke-linecap="round"/>
-    <path d="M 240,726 H 279 A 14,14 0 0,0 293,712 V 640 A 14,14 0 0,1 307,626" fill="none" stroke="{{AC_CHP}}" stroke-width="2.5" stroke-linecap="round"/>
-    <path d="M 307,626 H 351" fill="none" stroke="{{AC_PUR}}" stroke-width="2.5" stroke-linecap="round" marker-end="url(#{{AM_PUR}})"/>
+    <!-- Merging arrows: each runs all the way to the card in its source's colour; where they overlap, they overlap -->
+    <path d="M 653,134 H 621 A 14,14 0 0,0 607,148 V 214 A 14,14 0 0,1 593,228 H 550" fill="none" stroke="{{AC_AOV}}" stroke-width="2.5" stroke-linecap="round" marker-end="url(#{{AM_AOV}})"/>
+    <path d="M 653,322 H 621 A 14,14 0 0,1 607,308 V 242 A 14,14 0 0,0 593,228 H 550" fill="none" stroke="{{AC_ARP}}" stroke-width="2.5" stroke-linecap="round" marker-end="url(#{{AM_ARP}})"/>
+    <path d="M 240,526 H 279 A 14,14 0 0,1 293,540 V 612 A 14,14 0 0,0 307,626 H 351" fill="none" stroke="{{AC_CON}}" stroke-width="2.5" stroke-linecap="round" marker-end="url(#{{AM_CON}})"/>
+    <path d="M 240,726 H 279 A 14,14 0 0,0 293,712 V 640 A 14,14 0 0,1 307,626 H 351" fill="none" stroke="{{AC_CHP}}" stroke-width="2.5" stroke-linecap="round" marker-end="url(#{{AM_CHP}})"/>
     <path d="M 548,626 H 593 A 14,14 0 0,0 607,612 V 540 A 14,14 0 0,1 621,526 H 653" fill="none" stroke="{{AC_PUR}}" stroke-width="2.5" stroke-linecap="round" marker-end="url(#{{AM_PUR}})"/>
     <path d="M 548,626 H 593 A 14,14 0 0,1 607,640 V 712 A 14,14 0 0,0 621,726 H 653" fill="none" stroke="{{AC_PUR}}" stroke-width="2.5" stroke-linecap="round" marker-end="url(#{{AM_PUR}})"/>
     <line x1="450" y1="846" x2="450" y2="718" stroke="{{AC_CHK}}" stroke-width="2.5" stroke-linecap="round" marker-end="url(#{{AM_CHK}})"/>
@@ -1021,15 +1019,13 @@
     <line x1="548" y1="1418" x2="653" y2="1418" stroke="{{AC_PVC}}" stroke-width="2.5" stroke-linecap="round" marker-end="url(#{{AM_PVC}})"/>
     <line x1="450" y1="1566" x2="450" y2="1510" stroke="{{AC_SES}}" stroke-width="2.5" stroke-linecap="round" marker-end="url(#{{AM_SES}})"/>
     <line x1="548" y1="1658" x2="653" y2="1658" stroke="{{AC_SES}}" stroke-width="2.5" stroke-linecap="round" marker-end="url(#{{AM_SES}})"/>
-    <!-- Sources → Sessions: each stub in its source's colour, the shared trunk in the colour of Sessions -->
-    <path d="M 95,1796 V 1778 A 12,12 0 0,1 107,1766" fill="none" stroke="{{AC_S1}}" stroke-width="1.8" stroke-linecap="round"/>
-    <path d="M 237,1796 V 1778 A 12,12 0 0,1 249,1766" fill="none" stroke="{{AC_S2}}" stroke-width="1.8" stroke-linecap="round"/>
-    <path d="M 379,1796 V 1778 A 12,12 0 0,1 391,1766" fill="none" stroke="{{AC_S3}}" stroke-width="1.8" stroke-linecap="round"/>
-    <path d="M 521,1796 V 1778 A 12,12 0 0,0 509,1766" fill="none" stroke="{{AC_S4}}" stroke-width="1.8" stroke-linecap="round"/>
-    <path d="M 663,1796 V 1778 A 12,12 0 0,0 651,1766" fill="none" stroke="{{AC_S5}}" stroke-width="1.8" stroke-linecap="round"/>
-    <path d="M 805,1796 V 1778 A 12,12 0 0,0 793,1766" fill="none" stroke="{{AC_S6}}" stroke-width="1.8" stroke-linecap="round"/>
-    <path d="M 107,1766 H 438 A 12,12 0 0,0 450,1754 V 1748" fill="none" stroke="{{AC_SRC}}" stroke-width="1.8" stroke-linecap="round" marker-end="url(#{{AM_SRC}})"/>
-    <path d="M 793,1766 H 462 A 12,12 0 0,1 450,1754 V 1748" fill="none" stroke="{{AC_SRC}}" stroke-width="1.8" stroke-linecap="round" marker-end="url(#{{AM_SRC}})"/>
+    <!-- Sources → Sessions: each source's arrow runs all the way to Sessions in its own colour -->
+    <path d="M 95,1796 V 1778 A 12,12 0 0,1 107,1766 H 438 A 12,12 0 0,0 450,1754 V 1748" fill="none" stroke="{{AC_S1}}" stroke-width="1.8" stroke-linecap="round" marker-end="url(#{{AM_S1}})"/>
+    <path d="M 237,1796 V 1778 A 12,12 0 0,1 249,1766 H 438 A 12,12 0 0,0 450,1754 V 1748" fill="none" stroke="{{AC_S2}}" stroke-width="1.8" stroke-linecap="round" marker-end="url(#{{AM_S2}})"/>
+    <path d="M 379,1796 V 1778 A 12,12 0 0,1 391,1766 H 438 A 12,12 0 0,0 450,1754 V 1748" fill="none" stroke="{{AC_S3}}" stroke-width="1.8" stroke-linecap="round" marker-end="url(#{{AM_S3}})"/>
+    <path d="M 521,1796 V 1778 A 12,12 0 0,0 509,1766 H 462 A 12,12 0 0,1 450,1754 V 1748" fill="none" stroke="{{AC_S4}}" stroke-width="1.8" stroke-linecap="round" marker-end="url(#{{AM_S4}})"/>
+    <path d="M 663,1796 V 1778 A 12,12 0 0,0 651,1766 H 462 A 12,12 0 0,1 450,1754 V 1748" fill="none" stroke="{{AC_S5}}" stroke-width="1.8" stroke-linecap="round" marker-end="url(#{{AM_S5}})"/>
+    <path d="M 805,1796 V 1778 A 12,12 0 0,0 793,1766 H 462 A 12,12 0 0,1 450,1754 V 1748" fill="none" stroke="{{AC_S6}}" stroke-width="1.8" stroke-linecap="round" marker-end="url(#{{AM_S6}})"/>
   </svg>
 
 </div>
@@ -1424,8 +1420,25 @@ function fitLeft() {
   var sAvail = seg.parentElement.clientWidth;
   seg.style.width = sAvail < 700 ? '700px' : '';
   seg.style.zoom = sAvail < 700 ? String(sAvail / 700) : '1';
+  fitHeights();
+}
+
+// Segments end well above the Map: make their rows taller so the right side ends about where the left one does.
+var ROW_EXTRA_MAX = 28; // px per row, so a short left side (Tree) never blows the rows up
+function fitHeights() {
+  var rows = [].slice.call(document.querySelectorAll('.seg-table tbody tr'));
+  rows.forEach(function (r) { r.style.height = ''; });
+  var left = [].slice.call(document.querySelectorAll('.split-left .tab-panel')).filter(function (p) { return p.offsetHeight > 0; })[0];
+  var seg = document.querySelector('.seg-fit');
+  if (!left || !seg || !rows.length) return;
+  var extra = left.getBoundingClientRect().bottom - seg.getBoundingClientRect().bottom;
+  if (extra <= 0) return;
+  var zoom = parseFloat(seg.style.zoom) || 1; // rows are sized in the segments' own (unzoomed) pixels
+  var add = Math.min(extra / zoom / rows.length, ROW_EXTRA_MAX);
+  rows.forEach(function (r) { r.style.height = (r.offsetHeight + add) + 'px'; });
 }
 window.addEventListener('resize', fitLeft);
+window.addEventListener('load', fitHeights);
 fitLeft();
 
 var TITLES = { map: 'Funnel Metric Map', tree: 'Conversion Rate Driver Tree' };
@@ -1479,6 +1492,7 @@ function switchTab(name) {
   document.getElementById('vTree').style.display = name === 'tree' ? '' : 'none';
   document.getElementById('leftHelp').setAttribute('data-tip', 'help-' + name);
   hideTip();
+  fitHeights();
 }
 
 // ── Targets panel: pick best month / 3-month level / own value per step; the page around saves it ──

@@ -1081,7 +1081,12 @@
     // Fit the iframe to its content (tabs change the height).
     setInterval(() => {
       const doc = $("frame").contentDocument;
-      if (!$("frame").hidden && doc && doc.body) $("frame").style.height = `${doc.documentElement.scrollHeight + 20}px`;
+      // body, not documentElement: the document is never shorter than the frame itself, so documentElement +20
+      // grew the frame by 20px every half second and left a long empty space under the dashboard
+      if (!$("frame").hidden && doc && doc.body) {
+        const h = `${doc.body.scrollHeight + 20}px`;
+        if ($("frame").style.height !== h) $("frame").style.height = h;
+      }
     }, 500);
     // ?demo opens the demo store right away (links from the site and Gumroad)
     if (new URLSearchParams(location.search).has("demo")) enterDemo();

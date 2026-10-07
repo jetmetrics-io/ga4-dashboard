@@ -2,10 +2,11 @@
 // (accountSummaries, batchRunReports) in the browser, without Google, so any period, comparison and filter works.
 //
 // The store: a fashion DTC brand, ~400k sessions a month, data from Jul 1, 2024 to yesterday, with yearly
-// seasonality (Black Friday, December), weekdays and steady growth. Two stories are built in, always relative
-// to today:
-//   - mobile Checkout → Purchase dropped in the last 6 weeks (a payment issue);
-//   - Paid Social grew over the last 10 weeks, with weak traffic that rarely adds to cart.
+// seasonality (Black Friday, December), weekdays, traffic growing ~34% a year and prices ~6% a year: a growing
+// store that leaks money at checkout. Two stories are built in, tied to the calendar so that the default view
+// (last month vs the month before) always shows them:
+//   - mobile Checkout → Purchase drops ~12% from the 10th of last month (a payment issue);
+//   - Paid Social grows from the start of the month before last, with weak traffic that rarely adds to cart.
 // Deterministic: the same day always gives the same numbers.
 (function (global) {
   const DAY = 86400000;
@@ -86,7 +87,7 @@
 
   // ── Time ─────────────────────────────────────────────────────────────────────
   const yesterday = () => { const n = new Date(); return Date.UTC(n.getFullYear(), n.getMonth(), n.getDate()) - DAY; };
-  const MONTH = [0.86, 0.84, 0.95, 0.97, 1.0, 0.92, 0.9, 0.94, 1.0, 1.03, 1.16, 1.2];
+  const MONTH = [0.86, 0.84, 0.95, 0.96, 0.98, 0.95, 0.95, 0.95, 1.03, 1.05, 1.16, 1.2];
   const WEEKDAY = [1.06, 1.04, 1.0, 0.99, 0.98, 0.94, 0.99]; // Sun..Sat
 
   function blackFriday(y) {
@@ -99,30 +100,33 @@
     const years = (t - START) / (365 * DAY);
     const bf = blackFriday(y);
     const peak = t >= bf - DAY && t <= bf + 3 * DAY ? 1.7 : 1;
-    return 9400 * (1 + 0.17 * years) * MONTH[d.getUTCMonth()] * WEEKDAY[d.getUTCDay()] * peak * nz(0.06, "s", t);
+    return 8200 * (1 + 0.34 * years) * MONTH[d.getUTCMonth()] * WEEKDAY[d.getUTCDay()] * peak * nz(0.06, "s", t);
   }
 
-  // Paid Social share grows over the last 10 weeks (story 2)
+  // The stories are tied to the calendar, so the default view (last month vs the month before) always tells them:
+  // Paid Social grows from the start of the month before last; mobile checkout breaks on the 10th of last month.
+  function lastMonthStart() { const n = new Date(); return Date.UTC(n.getFullYear(), n.getMonth() - 1, 1); }
+  function socialFrom() { const d = new Date(lastMonthStart()); return Date.UTC(d.getUTCFullYear(), d.getUTCMonth() - 1, 1); }
+
+  // Paid Social grows on top of the other channels (story 2): extra sessions, nobody else loses any
   function channelShares(t) {
-    const p = Math.min(1, Math.max(0, 1 - (yesterday() - t) / (70 * DAY)));
-    const raw = CHANNELS.map((c, i) => c[1] * (i === 2 ? 1 + 0.9 * p : 1) * nz(0.05, "c", t, i));
-    const sum = raw.reduce((a, b) => a + b, 0);
-    return raw.map((x) => x / sum);
+    const from = socialFrom();
+    const p = Math.min(1, Math.max(0, (t - from) / (yesterday() - from)));
+    return CHANNELS.map((c, i) => c[1] * (i === 2 ? 1 + 0.9 * p : 1) * nz(0.05, "c", t, i));
   }
 
-  // Mobile Checkout → Purchase drops over 3 days, 6 weeks ago (story 1)
+  // Mobile Checkout → Purchase drops over 3 days from the 10th of last month (story 1)
   function mobileDrop(t, vi) {
     if (vi !== 0) return 1;
-    const days = (yesterday() - t) / DAY;
-    if (days > 44) return 1;
-    if (days > 41) return 1 - 0.3 * ((44 - days) / 3);
-    return 0.7;
+    const days = (t - (lastMonthStart() + 9 * DAY)) / DAY;
+    if (days < 0) return 1;
+    return 1 - 0.12 * Math.min(1, days / 3);
   }
 
   // Per day: sessions, channel shares, month (computed once a day)
   const dayCtx = new Map();
   function day(t) {
-    if (!dayCtx.has(t)) dayCtx.set(t, { t, S: sessionsOn(t), shares: channelShares(t), month: new Date(t).getUTCMonth() });
+    if (!dayCtx.has(t)) dayCtx.set(t, { t, S: sessionsOn(t), shares: channelShares(t), month: new Date(t).getUTCMonth(), price: 1 + 0.06 * (t - START) / (365 * DAY) });
     return dayCtx.get(t);
   }
 
@@ -152,7 +156,7 @@
     const purR = Math.min(0.97, BASE.pur * cm[3] * dm[3] * um[3] * mobileDrop(t, vi) * n.p);
     const view = sess * viewR, atc = view * atcR, chk = atc * chkR, pur = chk * purR;
     const tx = pur * 1.03;
-    const aov = AOV * aovM * aovU * (dc.month === 10 ? 0.9 : 1) * n.o;
+    const aov = AOV * dc.price * aovM * aovU * (dc.month === 10 ? 0.9 : 1) * n.o; // prices up ~6% a year
     const purchasers = pur * 0.98;
     return {
       sessions: sess, session_start: sess * 0.995, view_item: view, add_to_cart: atc, begin_checkout: chk, purchase: pur,

@@ -541,14 +541,12 @@
     p.BG_DSP = "block"; p.BG_LFT = lft; p.BG_TOP = top; p.BG_WDT = wdt; p.BG_TXT = badgeTxt;
     p.BG_TIP = _badgeTip(p, worst, badgeTxt.includes("Need"), popPcts[worst]);
 
-    // Arrow colours: how the card an arrow starts from changed (PoP), like the ▲▼ on that card.
-    // SRC = the shared trunk from the traffic sources into Sessions, coloured like Sessions.
+    // Arrow colours: how the card an arrow starts from changed (PoP), like the ▲▼ on that card. Merging arrows
+    // (into Total Revenue, Purchases, Sessions) each run to the card in their own colour and simply overlap (Мария, 07.10.26).
     const arrow = (v) => (v === null || v === undefined ? ["#C8C8C8", "an"] : v >= 0 ? ["#0E9C7D", "ag"] : ["#FF5C60", "ar"]);
-    // Where two arrows merge, the shared end takes the colour of the card they point to (REV, PUR).
-    ["REV", "PUR", "AOV", "ARP", "CON", "CHP", "CHK", "ACK", "ATC", "PAC", "PVC", "SPV", "SES", "S1", "S2", "S3", "S4", "S5", "S6"].forEach((k) => {
+    ["PUR", "AOV", "ARP", "CON", "CHP", "CHK", "ACK", "ATC", "PAC", "PVC", "SPV", "SES", "S1", "S2", "S3", "S4", "S5", "S6"].forEach((k) => {
       [p[`AC_${k}`], p[`AM_${k}`]] = arrow(popPcts[k]);
     });
-    [p.AC_SRC, p.AM_SRC] = arrow(popPcts.SES);
 
     // What-if model
     p.MD_SS = String(Math.trunc(s || 0));
