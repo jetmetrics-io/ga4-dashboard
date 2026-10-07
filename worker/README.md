@@ -15,7 +15,7 @@ Cloudflare Worker `funnel-dashboard-api` at `https://api.jetmetrics.io/funnel-da
 
 **The dashboard's files.** `npm run deploy` first copies `shell.js`, `core.js`, `app.js`, `template.html` and `claude_prompt.md` from the repo root into `public/funnel-dashboard/app/` (`scripts/assets.mjs`); the Worker serves them as static assets at `https://api.jetmetrics.io/funnel-dashboard/app/<file>` with `Access-Control-Allow-Origin: *` and `Cache-Control: no-cache`. `public/` is generated, not committed.
 
-**Old paths.** `/auth/…` (before 06.10.26) is still answered as `/funnel-dashboard/auth/…` for pages that loaded an old app.js; remove once no page loads files from jsDelivr.
+**Logs.** Workers Logs are on (`[observability]`): failed calls to Google and Gumroad are logged with the endpoint and the error code only, never tokens or email addresses.
 
 ## Config
 

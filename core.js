@@ -62,6 +62,15 @@
   // landingPage = page path without the query string.
   const SEGMENT_DIMS = { user_type: "newVsReturning", traffic_source: "sessionDefaultChannelGrouping", device: "deviceCategory", landing_page: "landingPage" };
 
+  // Landing pages: a big store has tens of thousands, and GA4 returns 10,000 rows by default. So we ask for the
+  // LP_ROWS pages with most sessions (the table and the filter list), then funnel steps and PoP only for the top
+  // pages, and count the pages we didn't fetch as LP_REST = totals minus the fetched pages (sessions add up
+  // across landing pages: a session has one).
+  const LP_ROWS = 250;
+  const LP_TOP = 5;
+  const LP_EXCLUDE = ["(not set)", "(direct)", "Unassigned"];
+  const LP_REST = "(other pages)";
+
   function funnelFilter() {
     return { filter: { fieldName: "eventName", inListFilter: { values: FUNNEL_EVENTS } } };
   }
@@ -99,6 +108,11 @@
     // Segments: A = funnel steps by segment (current), B = sessions/revenue by segment (current + PoP)
     Object.keys(SEGMENT_DIMS).forEach((k) => {
       const d = SEGMENT_DIMS[k];
+      if (k === "landing_page") {
+        // The rest of the landing page data comes from landingPlan() once these rows are in
+        plan.push({ key: "lpTop", request: { dateRanges: cur, dimensions: dims(d), metrics: mets("sessions", "totalRevenue", "transactions"), orderBys: [{ metric: { metricName: "sessions" }, desc: true }], limit: LP_ROWS } });
+        return;
+      }
       plan.push({ key: `segA_${k}`, request: { dateRanges: cur, dimensions: dims("eventName", d), metrics: mets("sessions"), dimensionFilter: funnelFilter() } });
       plan.push({ key: `segB_${k}`, request: { dateRanges: curPop, dimensions: dims(d), metrics: mets("sessions", "totalRevenue", "transactions") } });
     });
@@ -125,6 +139,47 @@
       (row.metricValues || []).forEach((v, i) => { o[mh[i]] = Number(v.value); });
       return o;
     });
+  }
+
+  // The top landing pages (plus technical values, which the table leaves out) from the lpTop rows.
+  function landingPages(lpTopRows) {
+    const d = SEGMENT_DIMS.landing_page;
+    const top = lpTopRows.filter((r) => !LP_EXCLUDE.includes(r[d])).sort((a, b) => b.sessions - a.sessions).slice(0, LP_TOP).map((r) => r[d]);
+    return top.concat(lpTopRows.map((r) => r[d]).filter((v) => LP_EXCLUDE.includes(v)));
+  }
+
+  // Second step for landing pages: funnel steps (current) and sessions/revenue (PoP) for the top pages only.
+  function landingPlan(periods, filters, lpTopRows) {
+    const pages = landingPages(lpTopRows);
+    if (!pages.length) return [];
+    const d = SEGMENT_DIMS.landing_page;
+    const onPages = { filter: { fieldName: d, inListFilter: { values: pages } } };
+    const both = (a) => ({ andGroup: { expressions: [a, onPages] } });
+    return [
+      { key: "segA_landing_page", request: { dateRanges: [periods.current], dimensions: [{ name: "eventName" }, { name: d }], metrics: [{ name: "sessions" }], dimensionFilter: withFilters(both(funnelFilter()), filters) } },
+      { key: "lpPop", request: { dateRanges: [periods.pop], dimensions: [{ name: d }], metrics: [{ name: "sessions" }, { name: "totalRevenue" }, { name: "transactions" }], dimensionFilter: withFilters(onPages, filters) } },
+    ];
+  }
+
+  // Landing page rows for the Segments tab: fetched pages plus LP_REST = totals minus the fetched pages.
+  function landingSegment(R, aggCur, aggPop, funnelCur) {
+    const d = SEGMENT_DIMS.landing_page;
+    const rowB = (r) => ({ segment: r[d], sessions: r.sessions || 0, totalRevenue: r.totalRevenue || 0, transactions: r.transactions || 0 });
+    const withRest = (rows, agg) => {
+      const sum = (m) => rows.reduce((t, r) => t + (r[m] || 0), 0);
+      const rest = { segment: LP_REST, sessions: Math.max(0, (agg.sessions || 0) - sum("sessions")), totalRevenue: Math.max(0, (agg.totalRevenue || 0) - sum("totalRevenue")), transactions: Math.max(0, (agg.transactions || 0) - sum("transactions")) };
+      return rest.sessions || rest.totalRevenue || rest.transactions ? rows.concat([rest]) : rows;
+    };
+    const a = R("segA_landing_page").map((r) => ({ eventName: r.eventName, segment: r[d], sessions: r.sessions || 0 }));
+    FUNNEL_EVENTS.forEach((e) => {
+      const rest = (funnelCur[e] || 0) - a.filter((r) => r.eventName === e).reduce((t, r) => t + r.sessions, 0);
+      if (rest > 0) a.push({ eventName: e, segment: LP_REST, sessions: rest });
+    });
+    return {
+      query_a_current: a,
+      query_b_current: withRest(R("lpTop").map(rowB), aggCur),
+      query_b_pop: withRest(R("lpPop").map(rowB), aggPop),
+    };
   }
 
   // GA4 adds a "dateRange" dimension when a request has several date ranges.
@@ -167,6 +222,10 @@
     const segments = {};
     Object.keys(SEGMENT_DIMS).forEach((k) => {
       const d = SEGMENT_DIMS[k];
+      if (k === "landing_page") {
+        segments[k] = landingSegment(R, aggFor(R("agg"), "current"), aggFor(R("agg"), "pop"), funnelFor(R("funnel"), "current"));
+        return;
+      }
       const b = R(`segB_${k}`);
       const rowB = (r) => ({ segment: r[d], sessions: r.sessions, totalRevenue: r.totalRevenue, transactions: r.transactions });
       segments[k] = {
@@ -782,14 +841,12 @@
 
   const SEG_PREFIX = { user_type: "UT", traffic_source: "SC", device: "DV", landing_page: "LP" };
 
-  // Landing pages: top 5 by current sessions, the rest summed into "Other"; technical values left out.
-  // The Total row still comes from the global aggregates.
-  const LP_EXCLUDE = ["(not set)", "(direct)", "Unassigned"];
-  const LP_TOP = 5;
+  // Landing pages: top 5 by current sessions, the rest (LP_REST included) summed into "Other"; technical values
+  // left out. The Total row still comes from the global aggregates.
 
   function _groupLanding(seg) {
     const keep = (r) => !LP_EXCLUDE.includes(r.segment);
-    const top = seg.query_b_current.filter(keep).sort((a, b) => b.sessions - a.sessions).slice(0, LP_TOP).map((r) => r.segment);
+    const top = seg.query_b_current.filter((r) => keep(r) && r.segment !== LP_REST).sort((a, b) => b.sessions - a.sessions).slice(0, LP_TOP).map((r) => r.segment);
     const name = (s) => (top.includes(s) ? s : "Other");
     const groupB = (rows) => {
       const out = new Map();
@@ -1034,7 +1091,7 @@
     return html;
   }
 
-  const api = { SEGMENT_DIMS, buildPeriods, requestPlan, chunk, reportRows, toGa4Data, processMap, buildVerdicts, autoTargets, targetOptions, processTree, processSegments, buildSummary, fillTemplate };
+  const api = { SEGMENT_DIMS, LP_REST, buildPeriods, requestPlan, landingPlan, chunk, reportRows, toGa4Data, processMap, buildVerdicts, autoTargets, targetOptions, processTree, processSegments, buildSummary, fillTemplate };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else global.JMCore = api;
 })(typeof window !== "undefined" ? window : globalThis);

@@ -5,7 +5,7 @@
 (function () {
   "use strict";
 
-  const { SEGMENT_DIMS, buildPeriods, requestPlan, chunk, reportRows, toGa4Data, processMap, buildVerdicts, targetOptions, processTree, processSegments, buildSummary, fillTemplate } = window.JMCore;
+  const { SEGMENT_DIMS, LP_REST, buildPeriods, requestPlan, landingPlan, chunk, reportRows, toGa4Data, processMap, buildVerdicts, targetOptions, processTree, processSegments, buildSummary, fillTemplate } = window.JMCore;
 
   const SCOPE_GA = "https://www.googleapis.com/auth/analytics.readonly";
   // Email (non-sensitive) lets Google skip the account chooser on the next sign-in.
@@ -15,9 +15,13 @@
 
   const FILTERS = [["user_type", "User type"], ["traffic_source", "Traffic source"], ["device", "Device"], ["landing_page", "Landing page"]];
   const LP_OPTIONS = 200;
+  // Reports already loaded in this tab are reused for this long (switching back to a period or filter costs
+  // no GA4 quota); "Refresh" in the menu always loads anew.
+  const CACHE_MS = 30 * 60 * 1000;
+  const CACHE_SIZE = 12;
 
   const state = {
-    token: null, tokenExp: 0, tokenClient: null, expired: false, noAccess: null,
+    token: null, tokenExp: 0, tokenClient: null, expired: false, noAccess: null, cache: new Map(),
     properties: [], propertyId: null,
     template: null, lastData: null, loading: false, loadedAt: 0, seq: 0, conn: 0,
     view: null, filters: {}, options: {},
@@ -305,6 +309,7 @@
     unstore("session");
     forgetToken();
     state.noAccess = { email: d.email || "", url: d.access_url || "" };
+    state.cache.clear();
     state.expired = false;
     state.properties = [];
     state.lastData = null;
@@ -429,6 +434,7 @@
     unstore("email");
     state.expired = false;
     state.noAccess = null;
+    state.cache.clear();
     state.properties = [];
     state.lastData = null;
     $("frame").hidden = true;
@@ -575,7 +581,7 @@
   function updateOptions(d) {
     FILTERS.forEach(([k]) => {
       if (state.filters[k].length || !d.segments || !d.segments[k]) return;
-      const rows = d.segments[k].query_b_current.filter((r) => r.sessions > 0).sort((a, b) => b.sessions - a.sessions);
+      const rows = d.segments[k].query_b_current.filter((r) => r.sessions > 0 && r.segment !== LP_REST).sort((a, b) => b.sessions - a.sessions);
       state.options[k] = rows.slice(0, k === "landing_page" ? LP_OPTIONS : rows.length).map((r) => [r.segment, r.sessions]);
     });
   }
@@ -752,20 +758,36 @@
     if ($("msg").classList.contains("jm-error")) clearMessage();
 
     try {
-      const plan = requestPlan(periods, gaFilters());
-      const batches = chunk(plan, 5);
-      // One batch at a time: GA4 allows 10 concurrent requests per property, and the reports of a long
-      // period (e.g. This year so far) run long enough for three parallel batches of 5 to hit that limit.
-      const responses = [];
-      for (const b of batches) {
-        responses.push(await apiRetry(`${DATA}/properties/${propertyId}:batchRunReports`, { requests: b.map((x) => x.request) }));
-        if (seq !== state.seq) return; // a newer load started
+      const filters = gaFilters();
+      const cacheKey = JSON.stringify([propertyId, periods.current, periods.pop, periods.yoy, filters]);
+      const hit = state.cache.get(cacheKey);
+      let rowsByKey, sampled = false;
+      if (hit && Date.now() - hit.at < CACHE_MS) {
+        ({ rowsByKey, sampled } = hit);
+      } else {
+        rowsByKey = {};
+        const run = async (b) => {
+          const res = await apiRetry(`${DATA}/properties/${propertyId}:batchRunReports`, { requests: b.map((x) => x.request) });
+          (res.reports || []).forEach((r, j) => {
+            rowsByKey[b[j].key] = reportRows(r);
+            if (r.metadata && r.metadata.samplingMetadatas) sampled = true;
+          });
+        };
+        // One batch at a time: GA4 allows 10 concurrent requests per property, and the reports of a long
+        // period (e.g. This year so far) run long enough for three parallel batches of 5 to hit that limit.
+        for (const b of chunk(requestPlan(periods, filters), 5)) {
+          await run(b);
+          if (seq !== state.seq) return; // a newer load started
+        }
+        // Landing pages, step 2: funnel steps and PoP for the top pages found in step 1
+        const lp = landingPlan(periods, filters, rowsByKey.lpTop || []);
+        if (lp.length) {
+          await run(lp);
+          if (seq !== state.seq) return;
+        }
+        state.cache.set(cacheKey, { rowsByKey, sampled, at: Date.now() });
+        if (state.cache.size > CACHE_SIZE) state.cache.delete(state.cache.keys().next().value);
       }
-      const rowsByKey = {};
-      batches.forEach((b, i) => {
-        const reports = responses[i].reports || [];
-        b.forEach((x, j) => { rowsByKey[x.key] = reportRows(reports[j]); });
-      });
       const d = toGa4Data(rowsByKey, periods, prop ? prop.name : "");
       d.filters_label = filtersLabel();
       updateOptions(d);
@@ -775,6 +797,7 @@
       if (!state.template) state.template = await (await fetch(`${(window.JM_CONFIG && JM_CONFIG.assetsBase) || ""}template.html${assetVersion()}`)).text();
       if (seq !== state.seq) return;
       render();
+      dataNotice(d, sampled);
     } catch (e) {
       if (seq !== state.seq) return;
       if (e.status === 401) {
@@ -798,6 +821,21 @@
     } finally {
       if (seq === state.seq) setLoading(false);
       renderAll();
+    }
+  }
+
+  // A caveat under the header when the numbers need one: no data, no e-commerce events, or sampled by Google.
+  function dataNotice(d, sampled) {
+    if (/jm-(warn|error)/.test($("msg").className)) clearMessage();
+    const f = d.funnel_current;
+    const ecommerce = ["view_item", "add_to_cart", "begin_checkout", "purchase"].some((e) => f[e] > 0);
+    if (!d.agg_current.sessions) {
+      message("No sessions in this property for the selected period and filters.", "warn");
+    } else if (!ecommerce) {
+      message("This property has no e-commerce events (view_item, add_to_cart, begin_checkout, purchase) in the period, so the funnel is empty. The dashboard needs GA4 e-commerce tracking.", "warn",
+        [{ label: "How to set it up", href: "https://developers.google.com/analytics/devguides/collection/ga4/ecommerce" }]);
+    } else if (sampled) {
+      message("Google Analytics sampled the data for this period, so the numbers are estimates. A shorter period gives exact numbers.", "warn");
     }
   }
 
@@ -924,7 +962,7 @@
     if (act === "connect") { closeMenu(); requestToken(); return; }
     if (act === "applyDates") { state.view = { ...DR }; saveView(); closeMenu(); build(); return; }
     if (act === "cancel") { closeMenu(); return; }
-    if (act === "reload") { closeMenu(); build(); return; }
+    if (act === "reload") { closeMenu(); state.cache.clear(); build(); return; }
     if (act === "download") { closeMenu(); downloadData(); return; }
     if (act === "downloadMd") { closeMenu(); downloadForClaude(); return; }
     if (act === "otherAccount") { closeMenu(); useAnotherAccount(); return; }

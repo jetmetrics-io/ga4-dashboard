@@ -128,6 +128,8 @@ function json(body, status, headers = {}) {
 async function google(env, url, params) {
   const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams(params) });
   const body = await res.json().catch(() => ({}));
+  // Workers Logs: the endpoint and Google's error code only, never tokens or emails
+  if (!res.ok) console.error("google", new URL(url).pathname, res.status, body.error || "");
   return { ok: res.ok, status: res.status, body };
 }
 
@@ -168,7 +170,7 @@ async function hasAccess(env, email) {
       const q = new URLSearchParams({ email, product_id: product });
       const res = await fetch(`${env.GUMROAD_SALES_URL || GUMROAD_SALES_URL}?${q}`, { headers: { Authorization: `Bearer ${env.GUMROAD_TOKEN}` } });
       const j = await res.json();
-      if (!res.ok || !j.success) return null;
+      if (!res.ok || !j.success) { console.error("gumroad", res.status, j.message || ""); return null; }
       if ((j.sales || []).some((x) => String(x.email || "").toLowerCase() === email && !x.refunded && !x.chargedback)) return true;
     }
     return false;
@@ -269,14 +271,9 @@ async function revoke(request, env, headers) {
   return json({ ok: true }, 200, headers);
 }
 
-// Pages may still run app.js from before 06.10.26 (the CDN served stale copies), which calls /auth/…:
-// treat it as the product's routes. Remove once the dashboard's files are served from here.
-const LEGACY = "/auth/";
-
 export default {
   async fetch(request, env) {
-    let { pathname } = new URL(request.url);
-    if (pathname.startsWith(LEGACY)) pathname = AUTH + pathname.slice(LEGACY.length - 1);
+    const { pathname } = new URL(request.url);
     const headers = cors(env, request);
     if (request.method === "OPTIONS") return new Response(null, { status: Object.keys(headers).length ? 204 : 403, headers });
     if (request.method === "GET" && pathname === `${AUTH}/start`) return start(request, env);
