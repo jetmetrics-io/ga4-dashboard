@@ -11,7 +11,7 @@
 </style>
 <div class="jm-privacy">
   <h1>JetMetrics Web Dashboards Privacy Policy</h1>
-  <p class="jm-p-date">Effective October 7, 2026</p>
+  <p class="jm-p-date">Last updated October 8, 2026</p>
 
   <p>This policy explains what JetMetrics Web Dashboards access, how they use that information and where it is kept. JetMetrics Web Dashboards are our dashboards that connect to your Google Analytics, listed at <a href="https://jetmetrics.io/web-dashboards">jetmetrics.io/web-dashboards</a>. Today this is the <a href="https://jetmetrics.io/funnel-dashboard">Funnel Dashboard</a>. JetMetrics (“we”) runs them. This policy covers these dashboards only; the rest of jetmetrics.io is covered by the <a href="/privacy-policy">website privacy policy</a>. Questions: <a href="mailto:team@jetmetrics.io">team@jetmetrics.io</a>.</p>
 
@@ -42,6 +42,18 @@
   </ul>
   <p>Reports stay in the page's memory while the page is open and are gone when you close it.</p>
   <p>Our sign-in service at api.jetmetrics.io exchanges Google's one-time sign-in code for tokens and renews the access token from your sign-in session. It also checks your access with Gumroad (see “Access check”). It returns the tokens to your browser and keeps nothing: no tokens, no email address and no Analytics data. Google Analytics reports never pass through it.</p>
+
+  <h2>How we protect your data</h2>
+  <p>We protect Google user data, including your Google Analytics data, your email address and your Google tokens, with these measures:</p>
+  <ul>
+    <li><b>Encryption in transit.</b> Every connection between your browser, Google, our sign-in service and Gumroad uses HTTPS (TLS).</li>
+    <li><b>Encrypted sign-in session.</b> Our sign-in service encrypts your Google refresh token with AES-256-GCM before handing it to your browser. The key is kept only in our sign-in service, so the refresh token itself can't be read from your browser.</li>
+    <li><b>Minimum access.</b> We request only read-only access to Google Analytics and your email address. Your Analytics data goes from Google straight to your browser and never reaches our servers, so we hold no copy of it that could leak.</li>
+    <li><b>Short-lived data.</b> Access tokens from Google expire after one hour. Reports live only in the page's memory and are gone when you close the page. “Disconnect” revokes the access at Google and deletes the session, the token and your email address from your browser.</li>
+    <li><b>Nothing stored on our servers.</b> Our sign-in service keeps no tokens, email addresses or Analytics data. Its error logs record only which request failed and the error Google or Gumroad returned.</li>
+    <li><b>Protected sign-in.</b> Each sign-in carries a signed code that expires in 10 minutes, so a forged sign-in is rejected, and the tokens go only to the dashboard page that started the sign-in. Responses with tokens are never cached.</li>
+    <li><b>Protected keys and limited access.</b> The Google client secret and our encryption keys are stored as encrypted secrets at Cloudflare, not in the code. Only the JetMetrics team can access our Google Cloud project and Cloudflare account.</li>
+  </ul>
 
   <h2>Access check</h2>
   <p>You get access to a dashboard on our store at Gumroad, with your email address. When you connect, our sign-in service sends the email address of your Google account to Gumroad to look up whether it has access. Gumroad already has this address if you signed up with it there. Only the address is sent; your Google Analytics data never is. If the address isn't found, the dashboard shows where to get access, and you can connect another Google account instead.</p>
