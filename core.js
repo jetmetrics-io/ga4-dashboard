@@ -218,7 +218,10 @@
   function toGa4Data(rowsByKey, periods, store) {
     const R = (k) => rowsByKey[k] || [];
     const aggYoy = aggFor(R("agg"), "yoy");
-    const yoyAvailable = (aggYoy.sessions || 0) > 0;
+    // The comparison period is the same period a year ago (this year / last year presets, or own dates): a second,
+    // identical YoY comparison would only repeat PoP, so the dashboard shows one, as when there is no YoY data (Мария, 09.10.26).
+    const yoySame = periods.pop.startDate === periods.yoy.startDate && periods.pop.endDate === periods.yoy.endDate;
+    const yoyAvailable = !yoySame && (aggYoy.sessions || 0) > 0;
     const segments = {};
     Object.keys(SEGMENT_DIMS).forEach((k) => {
       const d = SEGMENT_DIMS[k];
@@ -241,6 +244,7 @@
       period_yoy_label: periods.yoyLabel,
       store,
       yoy_available: yoyAvailable,
+      yoy_same: yoySame,
       agg_current: aggFor(R("agg"), "current"),
       agg_pop: aggFor(R("agg"), "pop"),
       agg_yoy: yoyAvailable ? aggYoy : null,
@@ -280,9 +284,12 @@
     return `$${Math.round(v).toLocaleString("en-US")}`;
   }
 
+  // One decimal turns a share below 0.1% into "0.0%" while its change is computed on exact values (a real store on the
+  // Metrika version: CR 0.03% showed "0.0% ▲+28%", 09.10.26), so small shares get two or three decimals.
+  const pctDigits = (x) => (x === 0 || x >= 0.1 ? 1 : x >= 0.01 ? 2 : 3);
   function _fmtPct(v) {
     if (!isNum(v)) return "n/a";
-    return `${(v * 100).toFixed(1)}%`;
+    return `${(v * 100).toFixed(pctDigits(Math.abs(v * 100)))}%`;
   }
 
   function _fmtRatio(v) {
@@ -1009,8 +1016,8 @@
   function buildSummary(d, p, targetsInfo) {
     const out = [];
     out.push("## Dashboard data");
-    out.push(`Store: ${d.store || "—"}. Period: ${d.period_label}. Compared with ${d.period_pop_label} (PoP)` +
-      (d.yoy_available ? ` and the same period last year, ${d.period_yoy_label} (YoY).` : ". No data for the same period last year."));
+    out.push(`Store: ${d.store || "—"}. Period: ${d.period_label}. Compared with ${d.period_pop_label} (${d.yoy_same ? "the same period last year" : "PoP"})` +
+      (d.yoy_available ? ` and the same period last year, ${d.period_yoy_label} (YoY).` : d.yoy_same ? "." : ". No data for the same period last year."));
     if (d.filters_label) out.push(`Filters applied to every number below: ${d.filters_label}.`);
 
     out.push("\n### Funnel metric map");
