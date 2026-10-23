@@ -36,4 +36,4 @@ Until 07.10.26 the files came from jsDelivr (`@main`); it served stale versions 
 - The OAuth client must list every page origin under "Authorized JavaScript origins" (`http://localhost:8080`, `https://jetmetrics.io`).
 - On jetmetrics.io the sign-in goes through `worker/` (authorization-code flow); elsewhere the page falls back to the browser-only token flow.
 - Names shared across jetmetrics.io carry the product: browser storage keys start with `jm.funnel.`, API routes with `/funnel-dashboard/`. What belongs to all web dashboards carries `web-dashboards` (home page, privacy policy, the Google app's name).
-- Before public launch: Google verification of the `analytics.readonly` scope.
+- Google verification of the app (`analytics.readonly`, `userinfo.email`) passed on 23.10.26. Any change to the consent screen (name, logo, home page, privacy policy, domains, terms) or a new scope needs a new verification.
