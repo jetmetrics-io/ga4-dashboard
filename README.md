@@ -31,6 +31,8 @@ cd worker && CLOUDFLARE_API_TOKEN=… CLOUDFLARE_ACCOUNT_ID=… npm run deploy
 
 Until 07.10.26 the files came from jsDelivr (`@main`); it served stale versions for hours, so it is no longer used.
 
+Since 29.10.26 the pages are pages of the new jetmetrics.io site, not Tilda (repo `jetmetrics-io/site-en`: `site/web-dashboards/`, `site/web-dashboards-privacy/`, `site/funnel-dashboard/`). The site copies `tilda/web-dashboards*.html` as is: edit the block here first, then copy it there. The folder keeps its name `tilda/`.
+
 ## Notes
 
 - The OAuth client must list every page origin under "Authorized JavaScript origins" (`http://localhost:8080`, `https://jetmetrics.io`).
